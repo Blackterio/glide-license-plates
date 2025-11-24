@@ -69,21 +69,55 @@ end
 
 local function DrawPlateTextImproved(plateEntity)
     if not IsValid(plateEntity) then return end
-    if not plateEntity.PlateText or plateEntity.PlateText == "" then return end
     
-    local text = plateEntity.PlateText
-    local scale = plateEntity.PlateScale or GlideLicensePlates.Config.DefaultScale
-    local fontName = plateEntity.PlateFont or GlideLicensePlates.Config.DefaultFont
+    -- Get text from network variable directly
+    local text = plateEntity:GetPlateText()
+    
+    -- DEBUG: If no text from network var, try local property
+    if not text or text == "" then
+        text = plateEntity.PlateText
+    end
+    
+    if not text or text == "" then 
+        -- DEBUG: Draw error indicator
+        local pos = plateEntity:GetPos()
+        if pos then
+            cam.Start3D()
+                render.DrawWireframeSphere(pos, 5, 8, 8, Color(255, 0, 0), true)
+            cam.End3D()
+        end
+        return 
+    end
+    
+    local scale = plateEntity:GetPlateScale()
+    if not scale or scale <= 0 then
+        scale = plateEntity.PlateScale or GlideLicensePlates.Config.DefaultScale
+    end
+    
+    local fontName = plateEntity:GetPlateFont()
+    if not fontName or fontName == "" then
+        fontName = plateEntity.PlateFont or GlideLicensePlates.Config.DefaultFont
+    end
+    
+    -- Ensure we have valid scale and font
+    if not scale or scale <= 0 then return end
+    if not fontName or fontName == "" then fontName = "Arial" end
     
     local fontId = CreateScaledFont(fontName, 64, scale)
     
+    -- Get color with proper fallback chain
     local baseTextColor = Color(0, 0, 0, 255)
-    if plateEntity.GetTextColor and plateEntity.GetTextAlpha then
-        local colorVec = plateEntity:GetTextColor()
-        local alpha = plateEntity:GetTextAlpha()
-        if colorVec then
-            baseTextColor = Color(colorVec.x, colorVec.y, colorVec.z, alpha)
-        end
+    
+    local colorVec = plateEntity:GetTextColor()
+    local alpha = plateEntity:GetTextAlpha()
+    
+    if colorVec then
+        baseTextColor = Color(
+            math.Clamp(math.Round(colorVec.x), 0, 255),
+            math.Clamp(math.Round(colorVec.y), 0, 255),
+            math.Clamp(math.Round(colorVec.z), 0, 255),
+            math.Clamp(alpha or 255, 0, 255)
+        )
     end
     
     local parentVehicle = plateEntity:GetParentVehicle()
@@ -91,16 +125,19 @@ local function DrawPlateTextImproved(plateEntity)
     
     local basePos = plateEntity:GetBasePosition()
     local baseAng = plateEntity:GetBaseAngles()
+    
+    if not basePos or not baseAng then return end
+    
     local worldPos = parentVehicle:LocalToWorld(basePos)
-    local textAngles = parentVehicle:LocalToWorldAngles(baseAng) 
+    local textAngles = parentVehicle:LocalToWorldAngles(baseAng)
     
     -- Calculate lighting
     local lightFactor = CalculateAmbientLighting(worldPos, textAngles:Forward())
     
     local litTextColor = Color(
-        baseTextColor.r * lightFactor,
-        baseTextColor.g * lightFactor,
-        baseTextColor.b * lightFactor,
+        math.Clamp(baseTextColor.r * lightFactor, 0, 255),
+        math.Clamp(baseTextColor.g * lightFactor, 0, 255),
+        math.Clamp(baseTextColor.b * lightFactor, 0, 255),
         baseTextColor.a
     )
     
@@ -121,14 +158,21 @@ local function DrawPlateTextImproved(plateEntity)
     
     if renderScale <= 0 then return end
     
-    pcall(function()
+    local success = pcall(function()
         cam.Start3D2D(offsetPos, renderAng, renderScale)
             -- Slight Shadow
-            draw.SimpleText(text, fontId, 0, 0, Color(0, 0, 0, litTextColor.a * 3), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)           
+            draw.SimpleText(text, fontId, 0, 0, Color(0, 0, 0, litTextColor.a * 0.3), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             -- Main text
             draw.SimpleText(text, fontId, 0, 0, litTextColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         cam.End3D2D()
     end)
+    
+    if not success then
+        -- DEBUG: Draw yellow sphere if rendering failed
+        cam.Start3D()
+            render.DrawWireframeSphere(worldPos, 5, 8, 8, Color(255, 255, 0), true)
+        cam.End3D()
+    end
 end
 
 -- Client variables

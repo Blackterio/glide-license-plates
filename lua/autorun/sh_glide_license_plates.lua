@@ -506,28 +506,36 @@ if SERVER then
             plateEntity.PlateType = plateType 
             
             -- Configure properties after spawn 
-            timer.Simple(0.1, function()
-                if not IsValid(plateEntity) or not IsValid(vehicle) then return end
-                
-                plateEntity:SetPlateText(plateText)
-                plateEntity:SetPlateScale(config.scale or GlideLicensePlates.Config.DefaultScale)
-                plateEntity:SetPlateFont(plateFont) -- Use the determined font
-                
+-- Store properties locally FIRST
+				plateEntity.PlateText = plateText
+				plateEntity.PlateScale = config.scale or GlideLicensePlates.Config.DefaultScale
+				plateEntity.PlateFont = plateFont
+				
+				-- Get color
+				local textColor = GlideLicensePlates.GetPlateTextColor(plateType, config.textColor)
+				plateEntity.TextColorR = textColor.r
+				plateEntity.TextColorG = textColor.g
+				plateEntity.TextColorB = textColor.b
+				plateEntity.TextColorA = textColor.a
+				
+				-- Now set network variables (this triggers transmission to clients)
+				plateEntity:SetPlateText(plateText)
+				plateEntity:SetPlateScale(config.scale or GlideLicensePlates.Config.DefaultScale)
+				plateEntity:SetPlateFont(plateFont)
+				plateEntity:SetTextColor(Vector(textColor.r, textColor.g, textColor.b))
+				plateEntity:SetTextAlpha(textColor.a)
+				
+				-- CRITICAL: Force immediate network update
+				if plateEntity.NetworkVarNotify then
+					plateEntity:NetworkVarNotify("PlateText", plateText)
+					plateEntity:NetworkVarNotify("PlateScale", plateEntity.PlateScale)
+					plateEntity:NetworkVarNotify("PlateFont", plateFont)
+				end
 
-                -- Get appropriate text color (custom config > plate type default > system default)
-                local textColor = GlideLicensePlates.GetPlateTextColor(plateType, config.textColor)
-                
-                plateEntity:SetTextColor(Vector(textColor.r, textColor.g, textColor.b))
-                plateEntity:SetTextAlpha(textColor.a)
-                
-                -- Store color values locally
-                plateEntity.TextColorR = textColor.r
-                plateEntity.TextColorG = textColor.g
-                plateEntity.TextColorB = textColor.b
-                plateEntity.TextColorA = textColor.a
-                
-      
-                
+				-- Configure transform after spawn
+				timer.Simple(0.1, function()
+					if not IsValid(plateEntity) or not IsValid(vehicle) then return end
+ 
                 plateEntity:SetParentVehicle(vehicle)
                 plateEntity:SetModelRotation(config.modelRotation or Angle(0, 0, 0))
                 plateEntity:SetBaseTransform(config.position or Vector(0, 0, 0), config.angles or Angle(0, 0, 0))
@@ -821,36 +829,36 @@ if SERVER then
                 vehicle:DeleteOnRemove(plateEntity)
                 
                 -- Configure after spawn with PROPER COLOR RESTORATION
+-- Set basic properties IMMEDIATELY
+                plateEntity:SetPlateText(plateText)
+                plateEntity:SetPlateScale(config.scale or GlideLicensePlates.Config.DefaultScale)
+                plateEntity:SetPlateFont(plateFont)
+                
+                -- CRITICAL: Set the correct color IMMEDIATELY
+                local textColor = nil
+                
+                -- Priority 1: Use actual restored color
+                if vehicle._RestoredColors and vehicle._RestoredColors[plateId] then
+                    textColor = vehicle._RestoredColors[plateId]
+                else
+                    -- Priority 2: Use color hierarchy
+                    textColor = GlideLicensePlates.GetPlateTextColor(plateType, config.textColor)
+                end
+                
+                -- Apply the color IMMEDIATELY
+                plateEntity:SetTextColor(Vector(textColor.r, textColor.g, textColor.b))
+                plateEntity:SetTextAlpha(textColor.a)
+                
+                -- Store color values locally IMMEDIATELY
+                plateEntity.TextColorR = textColor.r
+                plateEntity.TextColorG = textColor.g
+                plateEntity.TextColorB = textColor.b
+                plateEntity.TextColorA = textColor.a
+                
+                -- Configure transform after spawn
                 timer.Simple(0.1, function()
                     if not IsValid(plateEntity) or not IsValid(vehicle) then return end
-                    
-                    -- Set basic properties
-                    plateEntity:SetPlateText(plateText)
-                    plateEntity:SetPlateScale(config.scale or GlideLicensePlates.Config.DefaultScale)
-                    plateEntity:SetPlateFont(plateFont)
-                    
-                    -- CRITICAL: Set the correct color
-                    local textColor = nil
-                    
-                    -- Priority 1: Use actual restored color
-                    if vehicle._RestoredColors and vehicle._RestoredColors[plateId] then
-                        textColor = vehicle._RestoredColors[plateId]
 
-                    else
-                        -- Priority 2: Use color hierarchy
-                        textColor = GlideLicensePlates.GetPlateTextColor(plateType, config.textColor)
-
-                    end
-                    
-                    -- Apply the color
-                    plateEntity:SetTextColor(Vector(textColor.r, textColor.g, textColor.b))
-                    plateEntity:SetTextAlpha(textColor.a)
-                    
-                    -- Store color values locally for future reference
-                    plateEntity.TextColorR = textColor.r
-                    plateEntity.TextColorG = textColor.g
-                    plateEntity.TextColorB = textColor.b
-                    plateEntity.TextColorA = textColor.a
                     
                     -- Set parent and transform
                     plateEntity:SetParentVehicle(vehicle)

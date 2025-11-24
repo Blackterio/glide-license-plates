@@ -394,7 +394,44 @@ concommand.Add("glide_recreate_plates", function(ply, cmd, args)
         end
     end)
 end)
-
+-- Debug command to check network vars
+concommand.Add("glide_debug_plate", function(ply, cmd, args)
+    if not IsValid(ply) or not ply:IsAdmin() then return end
+    
+    local vehicle, plateId, plateEntity, error = GetVehicleAndPlateFromTrace(ply)
+    if error then
+        ply:ChatPrint("[GLIDE License Plates] " .. error)
+        return
+    end
+    
+    if args[1] then
+        plateId = args[1]
+        plateEntity = GlideLicensePlates.GetSpecificPlate(vehicle, plateId)
+    end
+    
+    if not IsValid(plateEntity) then
+        ply:ChatPrint("[GLIDE License Plates] Invalid plate entity")
+        return
+    end
+    
+    ply:ChatPrint("====== PLATE DEBUG INFO ======")
+    ply:ChatPrint("Plate ID: " .. tostring(plateId))
+    ply:ChatPrint("Network Vars:")
+    ply:ChatPrint("  PlateText: " .. tostring(plateEntity:GetPlateText()))
+    ply:ChatPrint("  PlateScale: " .. tostring(plateEntity:GetPlateScale()))
+    ply:ChatPrint("  PlateFont: " .. tostring(plateEntity:GetPlateFont()))
+    ply:ChatPrint("Local Properties:")
+    ply:ChatPrint("  plateEntity.PlateText: " .. tostring(plateEntity.PlateText))
+    ply:ChatPrint("  plateEntity.PlateScale: " .. tostring(plateEntity.PlateScale))
+    ply:ChatPrint("  plateEntity.PlateFont: " .. tostring(plateEntity.PlateFont))
+    ply:ChatPrint("Color:")
+    local colorVec = plateEntity:GetTextColor()
+    if colorVec then
+        ply:ChatPrint("  RGB: " .. math.Round(colorVec.x) .. ", " .. math.Round(colorVec.y) .. ", " .. math.Round(colorVec.z))
+        ply:ChatPrint("  Alpha: " .. tostring(plateEntity:GetTextAlpha()))
+    end
+    ply:ChatPrint("===============================")
+end)
 
 -- Cleanup timer when map is changed
 hook.Add("PreCleanupMap", "GlideLicensePlates.CleanupTimer", function()

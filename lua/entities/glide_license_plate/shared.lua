@@ -40,25 +40,65 @@ function ENT:Initialize()
         
         self:SetNotSolid(true)
 
-		-- Default color
-		self:SetTextColor(Vector(0, 0, 0))
-		self:SetTextAlpha(255)   
+        -- Default color
+        self:SetTextColor(Vector(0, 0, 0))
+        self:SetTextAlpha(255)
 
         self.DoNotDuplicate = true
         self.PhysgunDisabled = true
+        
+        -- Force network variable updates
+        timer.Simple(0, function()
+            if IsValid(self) then
+                -- Trigger network update
+                self:SetPlateText(self.PlateText or "")
+                self:SetPlateScale(self.PlateScale or GlideLicensePlates.Config.DefaultScale)
+                self:SetPlateFont(self.PlateFont or GlideLicensePlates.Config.DefaultFont)
+            end
+        end)
+    else
+        -- CLIENT: Initialize local cache
+        self.PlateText = ""
+        self.PlateScale = 0.5
+        self.PlateFont = "Arial"
+        self.CachedTextColor = Color(0, 0, 0, 255)
     end
      
     -- Apply initial configuration
-    self:SetPlateText(self.PlateText or "")
-    self:SetPlateScale(self.PlateScale or GlideLicensePlates.Config.DefaultScale)
-    self:SetPlateFont(self.PlateFont or GlideLicensePlates.Config.DefaultFont)
+    if self.PlateText and self.PlateText ~= "" then
+        self:SetPlateText(self.PlateText)
+    end
+    if self.PlateScale and self.PlateScale > 0 then
+        self:SetPlateScale(self.PlateScale)
+    end
+    if self.PlateFont and self.PlateFont ~= "" then
+        self:SetPlateFont(self.PlateFont)
+    end
     self:SetModelRotation(self.ModelRotation or Angle(0, 0, 0))
     
     if IsValid(self.ParentVehicle) then
         self:SetParentVehicle(self.ParentVehicle)
     end
 end
-
+-- Force network variable synchronization
+function ENT:OnEntityDataUpdate(key)
+    if CLIENT then
+        -- Force update local cache when network vars change
+        if key == "PlateText" then
+            self.PlateText = self:GetPlateText()
+        elseif key == "PlateScale" then
+            self.PlateScale = self:GetPlateScale()
+        elseif key == "PlateFont" then
+            self.PlateFont = self:GetPlateFont()
+        elseif key == "TextColor" then
+            -- Force color update
+            local colorVec = self:GetTextColor()
+            if colorVec then
+                self.CachedTextColor = Color(colorVec.x, colorVec.y, colorVec.z, self:GetTextAlpha())
+            end
+        end
+    end
+end
 function ENT:UpdatePosition()
     if not IsValid(self:GetParentVehicle()) then return end
     
@@ -79,35 +119,70 @@ function ENT:UpdatePosition()
 end
 
 if CLIENT then
+    -- Track if entity is ready for rendering
+    ENT.ReadyForRender = false
+    ENT.InitAttempts = 0
+    
     function ENT:Draw()
-	-- Draw model
+        -- Draw model
         self:DrawModel()
         return
     end
     
     function ENT:Think()
-		-- Update local properties from network variables
+        -- Update local properties from network variables
+        local hasAllData = true
+        
         if self:GetPlateText() ~= "" then
             self.PlateText = self:GetPlateText()
+        else
+            hasAllData = false
         end
         
         if self:GetPlateScale() > 0 then
             self.PlateScale = self:GetPlateScale()
+        else
+            hasAllData = false
         end
         
         if self:GetPlateFont() ~= "" then
             self.PlateFont = self:GetPlateFont()
+        else
+            hasAllData = false
         end
         
         if self:GetModelRotation() then
             self.ModelRotation = self:GetModelRotation()
         end
         
+        -- Check if color data is available
+        local colorVec = self:GetTextColor()
+        if colorVec and (colorVec.x > 0 or colorVec.y > 0 or colorVec.z > 0 or self:GetTextAlpha() < 255) then
+            -- Color data is present
+        else
+            hasAllData = false
+        end
+        
         if IsValid(self:GetParentVehicle()) then
             self.ParentVehicle = self:GetParentVehicle()
             -- Update position continuously
             self:UpdatePosition()
+        else
+            hasAllData = false
         end
+        
+        -- Mark as ready when all data is available
+        if hasAllData then
+            self.ReadyForRender = true
+            self.InitAttempts = 0
+        else
+            self.InitAttempts = (self.InitAttempts or 0) + 1
+            -- Force ready after 50 attempts (5 seconds) to prevent permanent invisibility
+            if self.InitAttempts > 50 then
+                self.ReadyForRender = true
+            end
+        end
+        
         return true
     end
 end
