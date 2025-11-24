@@ -1,0 +1,18 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "blackterios_glide_vehicles/licenseplates/escudo"
+	"$translucent" 1
+	"$decal" "1"
+	"$surfaceprop" "Metal"
+	"$colorfix" "{255 255 255 }"
+	"Proxies"
+	{
+		"Equals"
+		{
+			srcVar1 $colorfix
+			resultVar	$color
+		}
+	}
+
+}
+
