@@ -1,6 +1,5 @@
 -- lua/glide_license_plates/client/cl_license_plates.lua
 
-
 local defaultTextColor = Color(0, 0, 0, 255)
 
 -- To create dynamic fonts based on scale
@@ -20,8 +19,6 @@ local function CreateScaledFont(fontName, baseSize, scale)
     if createdFonts[fontId] then
         return fontId
     end
-    
-   -- print("[GLIDE License Plates] Creating font: " .. fontName .. " with size: " .. scaledSize)
     
     surface.CreateFont(fontId, {
         font = fontName,
@@ -52,7 +49,6 @@ local function CreateScaledFont(fontName, baseSize, scale)
             createdFonts[fontId] = true
         end
     else
-    --    print("[GLIDE License Plates] Successfully created font: " .. fontId)
         createdFonts[fontId] = true
     end
     
@@ -79,13 +75,6 @@ local function DrawPlateTextImproved(plateEntity)
     end
     
     if not text or text == "" then 
-        -- DEBUG: Draw error indicator
-        local pos = plateEntity:GetPos()
-        if pos then
-            cam.Start3D()
-                render.DrawWireframeSphere(pos, 5, 8, 8, Color(255, 0, 0), true)
-            cam.End3D()
-        end
         return 
     end
     
@@ -153,8 +142,14 @@ local function DrawPlateTextImproved(plateEntity)
     renderAng:RotateAroundAxis(renderAng:Up(), 90)
     renderAng:RotateAroundAxis(renderAng:Forward(), 90)
     
-    local modelScale = math.max(math.abs(maxs.x - mins.x), math.abs(maxs.y - mins.y)) * 0.5
-    local renderScale = scale * 0.08 * math.max(modelScale, 1)
+    -- FIXED: Better scale calculation
+    -- Use the actual model dimensions and scale value directly
+    local modelWidth = math.abs(maxs.y - mins.y)
+    local modelHeight = math.abs(maxs.z - mins.z)
+    
+    -- Base the render scale on matching text width to model width
+    -- Divide by a smaller value to reduce text size (was 0.08, now 0.012)
+    local renderScale = scale * 0.5
     
     if renderScale <= 0 then return end
     
@@ -166,13 +161,6 @@ local function DrawPlateTextImproved(plateEntity)
             draw.SimpleText(text, fontId, 0, 0, litTextColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         cam.End3D2D()
     end)
-    
-    if not success then
-        -- DEBUG: Draw yellow sphere if rendering failed
-        cam.Start3D()
-            render.DrawWireframeSphere(worldPos, 5, 8, 8, Color(255, 255, 0), true)
-        cam.End3D()
-    end
 end
 
 -- Client variables
@@ -198,7 +186,7 @@ hook.Add("PostDrawOpaqueRenderables", "GlideLicensePlates.Render", function(bDra
     pcall(function()
         for _, ent in ents.Iterator() do
             if IsValid(ent) and ent:GetClass() == "glide_license_plate" and ShouldRenderPlate(ent) then
-                    DrawPlateTextImproved(ent) 
+                DrawPlateTextImproved(ent) 
             end
         end
     end)
@@ -235,7 +223,6 @@ end
 hook.Add("InitPostEntity", "GlideLicensePlates.InitClient", function()
     timer.Simple(1, CreateClientOptions)
 end)
-
 
 concommand.Add("glide_plate_help", function()
     chat.AddText(Color(255, 0, 100), "[GLIDE License Plates] These are just temporary commands for testing and debug purposes, they can't be saved with duplicators:")

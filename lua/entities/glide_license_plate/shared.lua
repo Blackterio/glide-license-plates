@@ -16,7 +16,7 @@ ENT.PlateFont = "coolvetica"
 ENT.ParentVehicle = NULL
 ENT.ModelRotation = Angle(0, 0, 0)
 ENT.BasePosition = Vector(0, 0, 0) 
-ENT.BaseAngles = Angle(0, 0, 0)   
+ENT.BaseAngles = Angle(0, 0, 0)
 
 function ENT:SetupDataTables()
     self:NetworkVar("String", 0, "PlateText")
@@ -26,8 +26,40 @@ function ENT:SetupDataTables()
     self:NetworkVar("Angle", 0, "ModelRotation")
     self:NetworkVar("Vector", 0, "BasePosition")
     self:NetworkVar("Angle", 1, "BaseAngles")
-	self:NetworkVar("Vector", 1, "TextColor") 
-	self:NetworkVar("Float", 1, "TextAlpha") 
+    self:NetworkVar("Vector", 1, "TextColor") 
+    self:NetworkVar("Float", 1, "TextAlpha")
+    
+    -- Setup network var callbacks
+    if CLIENT then
+        self:NetworkVarNotify("PlateText", function(ent, name, old, new)
+            ent.PlateText = new
+        end)
+        
+        self:NetworkVarNotify("PlateScale", function(ent, name, old, new)
+            ent.PlateScale = new
+        end)
+        
+        self:NetworkVarNotify("PlateFont", function(ent, name, old, new)
+            ent.PlateFont = new
+        end)
+        
+        self:NetworkVarNotify("TextColor", function(ent, name, old, new)
+            if new then
+                ent.CachedTextColor = Color(
+                    math.Clamp(math.Round(new.x), 0, 255),
+                    math.Clamp(math.Round(new.y), 0, 255),
+                    math.Clamp(math.Round(new.z), 0, 255),
+                    ent:GetTextAlpha()
+                )
+            end
+        end)
+        
+        self:NetworkVarNotify("TextAlpha", function(ent, name, old, new)
+            if ent.CachedTextColor then
+                ent.CachedTextColor.a = new
+            end
+        end)
+    end
 end
  
 function ENT:Initialize()
@@ -46,59 +78,35 @@ function ENT:Initialize()
 
         self.DoNotDuplicate = true
         self.PhysgunDisabled = true
-        
-        -- Force network variable updates
-        timer.Simple(0, function()
-            if IsValid(self) then
-                -- Trigger network update
-                self:SetPlateText(self.PlateText or "")
-                self:SetPlateScale(self.PlateScale or GlideLicensePlates.Config.DefaultScale)
-                self:SetPlateFont(self.PlateFont or GlideLicensePlates.Config.DefaultFont)
-            end
-        end)
     else
         -- CLIENT: Initialize local cache
-        self.PlateText = ""
-        self.PlateScale = 0.5
-        self.PlateFont = "Arial"
-        self.CachedTextColor = Color(0, 0, 0, 255)
+        self.PlateText = self:GetPlateText() or ""
+        self.PlateScale = self:GetPlateScale() or 0.5
+        self.PlateFont = self:GetPlateFont() or "Arial"
+        
+        local colorVec = self:GetTextColor()
+        if colorVec then
+            self.CachedTextColor = Color(
+                math.Clamp(math.Round(colorVec.x), 0, 255),
+                math.Clamp(math.Round(colorVec.y), 0, 255),
+                math.Clamp(math.Round(colorVec.z), 0, 255),
+                self:GetTextAlpha()
+            )
+        else
+            self.CachedTextColor = Color(0, 0, 0, 255)
+        end
     end
      
-    -- Apply initial configuration
-    if self.PlateText and self.PlateText ~= "" then
-        self:SetPlateText(self.PlateText)
+    -- Apply initial configuration (without forcing unnecessary updates)
+    if self.ModelRotation then
+        self:SetModelRotation(self.ModelRotation)
     end
-    if self.PlateScale and self.PlateScale > 0 then
-        self:SetPlateScale(self.PlateScale)
-    end
-    if self.PlateFont and self.PlateFont ~= "" then
-        self:SetPlateFont(self.PlateFont)
-    end
-    self:SetModelRotation(self.ModelRotation or Angle(0, 0, 0))
     
     if IsValid(self.ParentVehicle) then
         self:SetParentVehicle(self.ParentVehicle)
     end
 end
--- Force network variable synchronization
-function ENT:OnEntityDataUpdate(key)
-    if CLIENT then
-        -- Force update local cache when network vars change
-        if key == "PlateText" then
-            self.PlateText = self:GetPlateText()
-        elseif key == "PlateScale" then
-            self.PlateScale = self:GetPlateScale()
-        elseif key == "PlateFont" then
-            self.PlateFont = self:GetPlateFont()
-        elseif key == "TextColor" then
-            -- Force color update
-            local colorVec = self:GetTextColor()
-            if colorVec then
-                self.CachedTextColor = Color(colorVec.x, colorVec.y, colorVec.z, self:GetTextAlpha())
-            end
-        end
-    end
-end
+
 function ENT:UpdatePosition()
     if not IsValid(self:GetParentVehicle()) then return end
     
@@ -107,10 +115,10 @@ function ENT:UpdatePosition()
     local baseAng = self:GetBaseAngles()
     local modelRot = self:GetModelRotation()
     
-	-- Calculate world position from vehicle's base position 
+    -- Calculate world position from vehicle's base position 
     local worldPos = vehicle:LocalToWorld(basePos)
     
-	-- Calculate final angles combining base + rotation of the model
+    -- Calculate final angles combining base + rotation of the model
     local finalAngles = vehicle:LocalToWorldAngles(baseAng + modelRot)
     
     -- Apply position and angles
@@ -133,32 +141,42 @@ if CLIENT then
         -- Update local properties from network variables
         local hasAllData = true
         
-        if self:GetPlateText() ~= "" then
-            self.PlateText = self:GetPlateText()
+        local netText = self:GetPlateText()
+        if netText and netText ~= "" then
+            self.PlateText = netText
         else
             hasAllData = false
         end
         
-        if self:GetPlateScale() > 0 then
-            self.PlateScale = self:GetPlateScale()
+        local netScale = self:GetPlateScale()
+        if netScale and netScale > 0 then
+            self.PlateScale = netScale
         else
             hasAllData = false
         end
         
-        if self:GetPlateFont() ~= "" then
-            self.PlateFont = self:GetPlateFont()
+        local netFont = self:GetPlateFont()
+        if netFont and netFont ~= "" then
+            self.PlateFont = netFont
         else
             hasAllData = false
         end
         
-        if self:GetModelRotation() then
-            self.ModelRotation = self:GetModelRotation()
+        local netModelRot = self:GetModelRotation()
+        if netModelRot then
+            self.ModelRotation = netModelRot
         end
         
         -- Check if color data is available
         local colorVec = self:GetTextColor()
-        if colorVec and (colorVec.x > 0 or colorVec.y > 0 or colorVec.z > 0 or self:GetTextAlpha() < 255) then
-            -- Color data is present
+        if colorVec then
+            local alpha = self:GetTextAlpha()
+            self.CachedTextColor = Color(
+                math.Clamp(math.Round(colorVec.x), 0, 255),
+                math.Clamp(math.Round(colorVec.y), 0, 255),
+                math.Clamp(math.Round(colorVec.z), 0, 255),
+                alpha or 255
+            )
         else
             hasAllData = false
         end
@@ -203,7 +221,6 @@ if SERVER then
     end
     
     function ENT:Think()
-	
         -- Update position in the server
         if IsValid(self:GetParentVehicle()) then
             self:UpdatePosition()
@@ -224,7 +241,7 @@ if SERVER then
             self:SetBaseAngles(angles)
         end
         
-        -- Update position inmediately
+        -- Update position immediately
         self:UpdatePosition()
     end
     
@@ -295,10 +312,8 @@ if SERVER then
         self.ModelRotation = newRotation
         self:SetModelRotation(newRotation)
         
-        -- Update position and angles inmediately
+        -- Update position and angles immediately
         self:UpdatePosition()
-        
-      --  print("[GLIDE License Plates] Rotación actualizada a: P=" .. newRotation.p .. " Y=" .. newRotation.y .. " R=" .. newRotation.r)
     end
 end
 

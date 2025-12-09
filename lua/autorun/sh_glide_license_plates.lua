@@ -19,49 +19,55 @@ GlideLicensePlates.Config = {
     DefaultModel = "models/sprops/rectangles_superthin/size_1/rect_3x12.mdl",
     DefaultScale = 0.5
 }
-
+local mercosurtextscale = 0.37
 GlideLicensePlates.PlateTypes = { 
     ["argmercosur"] = {
         pattern = "AB 123 CD",
         model = "models/blackterios_glide_vehicles/licenseplates/argentinamercosur.mdl",
         description = "Mercosur Argentina (AB 123 CD) - Standard plate",
         defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255}, 
+        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultScale = mercosurtextscale, -- Escala específica para este tipo
     },
     ["argold"] = {
         pattern = "ABC 123",
         model = "models/blackterios_glide_vehicles/licenseplates/argentinaold.mdl", 
         description = "Argentina Old (ABC 123)",
         defaultFont = "coolvetica",
-        defaultTextColor = {r = 255, g = 255, b = 255, a = 255}, 
+        defaultTextColor = {r = 255, g = 255, b = 255, a = 255},
+        defaultScale = 0.33, -- Escala específica para este tipo
     },
     ["argvintage"] = {
         pattern = "A123456",
         model = "models/blackterios_glide_vehicles/licenseplates/argentinavintage.mdl",
         description = "Argentina Vintage (A123456)",
         defaultFont = "Times New Roman",
-        defaultTextColor = {r = 255, g = 255, b = 255, a = 255}, 
+        defaultTextColor = {r = 255, g = 255, b = 255, a = 255},
+        defaultScale = 0.4, -- Escala específica para este tipo
     },    
 	["brasilmercosur"] = {
         pattern = "ABC1D23",
         model = "models/blackterios_glide_vehicles/licenseplates/brasilmercosur.mdl",
         description = "Mercosur Brasil (ABC1D23)",
         defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255}, 
+        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultScale = mercosurtextscale, -- Escala específica para este tipo
     },
 	["paraguaymercosur"] = {
         pattern = "ABCD 123",
         model = "models/blackterios_glide_vehicles/licenseplates/paraguaymercosur.mdl",
         description = "Mercosur Paraguay (ABCD 123)",
         defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255}, 
+        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultScale = mercosurtextscale, -- Escala específica para este tipo
     },	
 	["uruguaymercosur"] = {
         pattern = "ABC 1234",
         model = "models/blackterios_glide_vehicles/licenseplates/uruguaymercosur.mdl",
         description = "Mercosur Uruguay (ABC 1234)",
         defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255}, 
+        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultScale = mercosurtextscale, -- Escala específica para este tipo
     },
 }
 
@@ -69,7 +75,6 @@ GlideLicensePlates.PlateTypes = {
 function GlideLicensePlates.GetPlateTextColor(plateType, customTextColor)
     -- Priority: custom color from config > plate type default color > system default (black)
     if customTextColor and type(customTextColor) == "table" then
-    --    print("[GLIDE License Plates] Using custom text color for plate")
         return {
             r = customTextColor.r or 0,
             g = customTextColor.g or 0, 
@@ -80,7 +85,6 @@ function GlideLicensePlates.GetPlateTextColor(plateType, customTextColor)
     
     local plateConfig = GlideLicensePlates.PlateTypes[plateType]
     if plateConfig and plateConfig.defaultTextColor then
-    --    print("[GLIDE License Plates] Using default text color for plate type: " .. plateType)
         return {
             r = plateConfig.defaultTextColor.r or 0,
             g = plateConfig.defaultTextColor.g or 0,
@@ -89,46 +93,53 @@ function GlideLicensePlates.GetPlateTextColor(plateType, customTextColor)
         }
     end
     
-  --  print("[GLIDE License Plates] Using system default text color (black)")
     return {r = 0, g = 0, b = 0, a = 255} -- Default black
+end
+
+-- NEW FUNCTION: Get the default scale for a plate type
+function GlideLicensePlates.GetPlateScale(plateType, customScale)
+    -- Priority: custom scale from vehicle config > plate type default scale > system default
+    if customScale and type(customScale) == "number" and customScale > 0 then
+        return customScale
+    end
+    
+    local plateConfig = GlideLicensePlates.PlateTypes[plateType]
+    if plateConfig and plateConfig.defaultScale and plateConfig.defaultScale > 0 then
+        return plateConfig.defaultScale
+    end
+    
+    return GlideLicensePlates.Config.DefaultScale
 end
 
 -- Function to get the appropriate font for a plate type
 function GlideLicensePlates.GetPlateFont(plateType, customFont)
     -- Priority: custom font from vehicle config > plate type custom font > plate type default font > system default
     if customFont and customFont ~= "" then
-    --    print("[GLIDE License Plates] Using custom font from config: " .. customFont)
         return customFont
     end
     
     local plateConfig = GlideLicensePlates.PlateTypes[plateType]
     if plateConfig then
         if plateConfig.customFont and plateConfig.customFont ~= "" then
-        --    print("[GLIDE License Plates] Using plate type custom font: " .. plateConfig.customFont)
             return plateConfig.customFont
         elseif plateConfig.defaultFont and plateConfig.defaultFont ~= "" then
-        --    print("[GLIDE License Plates] Using plate type default font: " .. plateConfig.defaultFont)
             return plateConfig.defaultFont
         end
     end
     
-   -- print("[GLIDE License Plates] Using system default font: " .. GlideLicensePlates.Config.DefaultFont)
     return GlideLicensePlates.Config.DefaultFont
 end
 
 -- Function to set custom font for a plate type
 function GlideLicensePlates.SetPlateTypeFont(plateType, fontName)
     if not plateType or not GlideLicensePlates.PlateTypes[plateType] then
-    --    print("[GLIDE License Plates] ERROR: Invalid plate type: " .. tostring(plateType))
         return false
     end
     
     if not fontName or fontName == "" then
         GlideLicensePlates.PlateTypes[plateType].customFont = nil
-    --    print("[GLIDE License Plates] Custom font cleared for plate type: " .. plateType)
     else
         GlideLicensePlates.PlateTypes[plateType].customFont = fontName
-    --    print("[GLIDE License Plates] Custom font set for " .. plateType .. ": " .. fontName)
     end
     return true
 end
@@ -184,7 +195,7 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
     
     -- Validar cada configuración de matrícula
     for i, config in ipairs(vehicle.LicensePlateConfigs) do
-	if config.textColor then
+        if config.textColor then
             if type(config.textColor) ~= "table" then
                 config.textColor = nil
                 print("[GLIDE License Plates] Invalid textColor config, will use plate type default")
@@ -200,11 +211,7 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
                 config.textColor.g = math.Clamp(config.textColor.g, 0, 255)
                 config.textColor.b = math.Clamp(config.textColor.b, 0, 255)
                 config.textColor.a = math.Clamp(config.textColor.a, 0, 255)
-                
-            --    print("[GLIDE License Plates] Validated custom textColor")
             end
-        else
-        --    print("[GLIDE License Plates] No custom textColor specified, will use plate type default")
         end
 
         -- Validar tipo de matrícula (puede ser string o tabla)
@@ -248,8 +255,11 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
             config.modelRotation = Angle(0, 0, 0)
         end
         
-        if not config.scale or type(config.scale) ~= "number" or config.scale <= 0 then
-            config.scale = GlideLicensePlates.Config.DefaultScale
+        -- MODIFIED: Validar scale ahora permite nil para usar defaults por tipo
+        if config.scale ~= nil then
+            if type(config.scale) ~= "number" or config.scale <= 0 then
+                config.scale = nil -- Será determinado por el tipo de placa
+            end
         end
         
         if config.customModel then
@@ -312,7 +322,6 @@ if SERVER then
 		
 		-- Check if we're in duplication restore mode
 		if vehicle._RestoreFromDupe then
-		--	print("[GLIDE License Plates] Skipping automatic creation - restoration in progress")
 			return false
 		end
         
@@ -332,6 +341,11 @@ if SERVER then
 
         if not vehicle.SelectedPlateFonts then
             vehicle.SelectedPlateFonts = {}
+        end
+        
+        -- NEW: Store selected scales
+        if not vehicle.SelectedPlateScales then
+            vehicle.SelectedPlateScales = {}
         end
         
         local globalPlateText = nil
@@ -379,9 +393,6 @@ if SERVER then
         if needsGlobalText and useGlobalType then
             local firstPlateType = vehicle.LicensePlateConfigs[1].plateType or "argmercosur"
             globalPlateText, globalPlateType = GlideLicensePlates.GeneratePlate(firstPlateType)
-        --    print("[GLIDE License Plates] Global text generated: " .. globalPlateText .. " (type: " .. globalPlateType .. ")")
-        else
-        --    print("[GLIDE License Plates] Using individual configs per plate")
         end
         
         local createdCount = 0
@@ -400,6 +411,7 @@ if SERVER then
             local plateType = nil
             local plateText = nil
             local plateFont = nil
+            local plateScale = nil
             
             -- Generate consistent text
             if not vehicle.LicensePlateTexts[plateId] then
@@ -413,7 +425,6 @@ if SERVER then
                         plateType = config.plateType or "argmercosur"
                     end
                     vehicle.SelectedPlateTypes[plateId] = plateType
-                --    print("[GLIDE License Plates] Using custom text for " .. plateId .. ": " .. plateText .. " (type: " .. plateType .. ")")
                 else
                     -- Use global text or generate a specific one
                     if globalPlateType and globalPlateText then
@@ -425,7 +436,6 @@ if SERVER then
                         plateText, plateType = GlideLicensePlates.GeneratePlate(config.plateType or "argmercosur")
                     end
                     vehicle.SelectedPlateTypes[plateId] = plateType
-                 --   print("[GLIDE License Plates] Generated for " .. plateId .. ": " .. plateText .. " (type: " .. plateType .. ")")
                 end
                 
                 vehicle.LicensePlateTexts[plateId] = plateText
@@ -441,7 +451,6 @@ if SERVER then
                         plateType = config.plateType or "argmercosur"
                     end
                     vehicle.SelectedPlateTypes[plateId] = plateType
-                --    print("[GLIDE License Plates] Late generated type for " .. plateId .. ": " .. plateType)
                 end
             end
             
@@ -451,20 +460,20 @@ if SERVER then
             -- First check if the specific plate config has a font
             if config.font and config.font ~= "" then
                 configFont = config.font
-            --    print("[GLIDE License Plates] Found font in plate config " .. plateId .. ": " .. configFont)
             end
             
             -- If no font in config, check if there's a customFont parameter
             if not configFont and config.customFont and config.customFont ~= "" then
                 configFont = config.customFont
-            --    print("[GLIDE License Plates] Found customFont in plate config " .. plateId .. ": " .. configFont)
             end
             
             -- Determine final font using the hierarchy
             plateFont = GlideLicensePlates.GetPlateFont(plateType, configFont)
             vehicle.SelectedPlateFonts[plateId] = plateFont
             
-        --    print("[GLIDE License Plates] Final font for " .. plateId .. ": " .. plateFont)
+            -- NEW: Determine the scale for this plate using hierarchy
+            plateScale = GlideLicensePlates.GetPlateScale(plateType, config.scale)
+            vehicle.SelectedPlateScales[plateId] = plateScale
             
             -- Create plate entity
             local plateEntity = ents.Create("glide_license_plate")
@@ -478,14 +487,12 @@ if SERVER then
             
             if config.customModel and config.customModel ~= "" and util.IsValidModel(config.customModel) then
                 plateModel = config.customModel
-            --    print("[GLIDE License Plates] Using custom model for " .. plateId .. ": " .. plateModel)
             else
                 -- Use the selected type specifically for this plate
                 local actualPlateType = plateType -- plateType already contains the selected type for this plate
                 
                 if GlideLicensePlates.PlateTypes[actualPlateType] and GlideLicensePlates.PlateTypes[actualPlateType].model then
                     plateModel = GlideLicensePlates.PlateTypes[actualPlateType].model
-                 --   print("[GLIDE License Plates] Using " .. actualPlateType .. "'s model for " .. plateId .. ": " .. plateModel)
                 else
                     plateModel = GlideLicensePlates.Config.DefaultModel
                     print("[GLIDE License Plates] WARNING: Type " .. actualPlateType .. " doesn't have defined model, using default model: " .. plateModel)
@@ -506,43 +513,36 @@ if SERVER then
             plateEntity.PlateType = plateType 
             
             -- Configure properties after spawn 
--- Store properties locally FIRST
-				plateEntity.PlateText = plateText
-				plateEntity.PlateScale = config.scale or GlideLicensePlates.Config.DefaultScale
-				plateEntity.PlateFont = plateFont
-				
-				-- Get color
-				local textColor = GlideLicensePlates.GetPlateTextColor(plateType, config.textColor)
-				plateEntity.TextColorR = textColor.r
-				plateEntity.TextColorG = textColor.g
-				plateEntity.TextColorB = textColor.b
-				plateEntity.TextColorA = textColor.a
-				
-				-- Now set network variables (this triggers transmission to clients)
-				plateEntity:SetPlateText(plateText)
-				plateEntity:SetPlateScale(config.scale or GlideLicensePlates.Config.DefaultScale)
-				plateEntity:SetPlateFont(plateFont)
-				plateEntity:SetTextColor(Vector(textColor.r, textColor.g, textColor.b))
-				plateEntity:SetTextAlpha(textColor.a)
-				
-				-- CRITICAL: Force immediate network update
-				if plateEntity.NetworkVarNotify then
-					plateEntity:NetworkVarNotify("PlateText", plateText)
-					plateEntity:NetworkVarNotify("PlateScale", plateEntity.PlateScale)
-					plateEntity:NetworkVarNotify("PlateFont", plateFont)
-				end
+            -- Store properties locally FIRST
+            plateEntity.PlateText = plateText
+            plateEntity.PlateScale = plateScale -- MODIFIED: Now uses the determined scale
+            plateEntity.PlateFont = plateFont
+            
+            -- Get color
+            local textColor = GlideLicensePlates.GetPlateTextColor(plateType, config.textColor)
+            plateEntity.TextColorR = textColor.r
+            plateEntity.TextColorG = textColor.g
+            plateEntity.TextColorB = textColor.b
+            plateEntity.TextColorA = textColor.a
+            
+            -- Now set network variables (this triggers transmission to clients)
+            plateEntity:SetPlateText(plateText)
+            plateEntity:SetPlateScale(plateScale) -- MODIFIED: Now uses the determined scale
+            plateEntity:SetPlateFont(plateFont)
+            plateEntity:SetTextColor(Vector(textColor.r, textColor.g, textColor.b))
+            plateEntity:SetTextAlpha(textColor.a)
 
-				-- Configure transform after spawn
-				timer.Simple(0.1, function()
-					if not IsValid(plateEntity) or not IsValid(vehicle) then return end
+            -- Configure transform after spawn
+            timer.Simple(0.1, function()
+                if not IsValid(plateEntity) or not IsValid(vehicle) then return end
  
                 plateEntity:SetParentVehicle(vehicle)
                 plateEntity:SetModelRotation(config.modelRotation or Angle(0, 0, 0))
                 plateEntity:SetBaseTransform(config.position or Vector(0, 0, 0), config.angles or Angle(0, 0, 0))
                 
                 plateEntity.PlateText = plateText
-                plateEntity.PlateScale = config.scale or GlideLicensePlates.Config.DefaultScale
-                plateEntity.PlateFont = plateFont -- Store the font
+                plateEntity.PlateScale = plateScale -- MODIFIED: Now uses the determined scale
+                plateEntity.PlateFont = plateFont
                 plateEntity.ParentVehicle = vehicle 
                 plateEntity.ModelRotation = config.modelRotation or Angle(0, 0, 0)
                 
@@ -559,7 +559,6 @@ if SERVER then
         -- Store vehicle in the global list
         GlideLicensePlates.ActivePlates[vehicle] = vehicle.LicensePlateEntities
         
-    --    print("[GLIDE License Plates] " .. createdCount .. " plates created for the vehicle")
         return createdCount > 0
     end
     
@@ -581,8 +580,6 @@ if SERVER then
         end
         
         GlideLicensePlates.ActivePlates[vehicle] = nil
-        
-       -- print("[GLIDE License Plates] All plates removed from vehicle: " .. tostring(vehicle))
     end
     
     -- Remove a specific plate
@@ -606,6 +603,11 @@ if SERVER then
             -- Clean the selected font
             if vehicle.SelectedPlateFonts then
                 vehicle.SelectedPlateFonts[plateId] = nil
+            end
+            
+            -- NEW: Clean the selected scale
+            if vehicle.SelectedPlateScales then
+                vehicle.SelectedPlateScales[plateId] = nil
             end
             
             print("[GLIDE License Plates] Plate " .. plateId .. " removed")
@@ -665,12 +667,11 @@ if SERVER then
     local pendingRestores = {}
     local restoringVehicles = {}
     
-    -- Enhanced plate data storage that includes colors
+    -- Enhanced plate data storage that includes colors and scales
     local function SaveCompleteePlateData(vehicle)
         if not IsValid(vehicle) or not vehicle.IsGlideVehicle then return false end
         
         local plateData = {
-
             timestamp = CurTime(),
         }
         
@@ -694,6 +695,12 @@ if SERVER then
         -- Save selected fonts
         if vehicle.SelectedPlateFonts and not table.IsEmpty(vehicle.SelectedPlateFonts) then
             plateData.selectedPlateFonts = table.Copy(vehicle.SelectedPlateFonts)
+            hasData = true
+        end
+        
+        -- NEW: Save selected scales
+        if vehicle.SelectedPlateScales and not table.IsEmpty(vehicle.SelectedPlateScales) then
+            plateData.selectedPlateScales = table.Copy(vehicle.SelectedPlateScales)
             hasData = true
         end
         
@@ -730,18 +737,14 @@ if SERVER then
         
         if hasData then
             duplicator.StoreEntityModifier(vehicle, "glide_license_plate_data", plateData)
-         --   print("[GLIDE License Plates] Complete plate data saved for duplication")
             return true
         end
         
         return false
     end
-    
-    -- Enhanced plate creation with proper color restoration
+   -- Enhanced plate creation with proper color and scale restoration
     local function CreatePlatesWithRestoredData(vehicle, plateData)
         if not IsValid(vehicle) or not plateData then return false end
-        
-     --   print("[GLIDE License Plates] Creating plates with complete restored data")
         
         -- Prevent automatic creation during restoration
         vehicle._RestoreFromDupe = true
@@ -768,10 +771,14 @@ if SERVER then
             vehicle.SelectedPlateFonts = table.Copy(plateData.selectedPlateFonts)
         end
         
+        -- NEW: Restore selected scales
+        if plateData.selectedPlateScales then
+            vehicle.SelectedPlateScales = table.Copy(plateData.selectedPlateScales)
+        end
+        
         -- Store restored colors for use during creation
         if plateData.actualTextColors then
             vehicle._RestoredColors = table.Copy(plateData.actualTextColors)
-           -- print("[GLIDE License Plates] Restored " .. table.Count(plateData.actualTextColors) .. " text colors")
         end
         
         -- Now create the plates
@@ -789,14 +796,19 @@ if SERVER then
                 local plateText = vehicle.LicensePlateTexts and vehicle.LicensePlateTexts[plateId]
                 local plateType = vehicle.SelectedPlateTypes and vehicle.SelectedPlateTypes[plateId]
                 local plateFont = vehicle.SelectedPlateFonts and vehicle.SelectedPlateFonts[plateId]
+                local plateScale = vehicle.SelectedPlateScales and vehicle.SelectedPlateScales[plateId] -- NEW
                 
                 if not plateText or not plateType then
-                --    print("[GLIDE License Plates] Missing restored data for " .. plateId)
                     continue
                 end
                 
                 if not plateFont then
                     plateFont = GlideLicensePlates.GetPlateFont(plateType, config.font or config.customFont)
+                end
+                
+                -- NEW: If no scale was restored, use hierarchy
+                if not plateScale then
+                    plateScale = GlideLicensePlates.GetPlateScale(plateType, config.scale)
                 end
                 
                 -- Create plate entity
@@ -828,10 +840,9 @@ if SERVER then
                 vehicle.LicensePlateEntities[plateId] = plateEntity
                 vehicle:DeleteOnRemove(plateEntity)
                 
-                -- Configure after spawn with PROPER COLOR RESTORATION
--- Set basic properties IMMEDIATELY
+                -- Set basic properties IMMEDIATELY
                 plateEntity:SetPlateText(plateText)
-                plateEntity:SetPlateScale(config.scale or GlideLicensePlates.Config.DefaultScale)
+                plateEntity:SetPlateScale(plateScale) -- MODIFIED: Now uses restored/determined scale
                 plateEntity:SetPlateFont(plateFont)
                 
                 -- CRITICAL: Set the correct color IMMEDIATELY
@@ -858,7 +869,6 @@ if SERVER then
                 -- Configure transform after spawn
                 timer.Simple(0.1, function()
                     if not IsValid(plateEntity) or not IsValid(vehicle) then return end
-
                     
                     -- Set parent and transform
                     plateEntity:SetParentVehicle(vehicle)
@@ -867,7 +877,7 @@ if SERVER then
                     
                     -- Store properties
                     plateEntity.PlateText = plateText
-                    plateEntity.PlateScale = config.scale or GlideLicensePlates.Config.DefaultScale
+                    plateEntity.PlateScale = plateScale -- MODIFIED
                     plateEntity.PlateFont = plateFont
                     plateEntity.ParentVehicle = vehicle
                     plateEntity.ModelRotation = config.modelRotation or Angle(0, 0, 0)
@@ -891,13 +901,12 @@ if SERVER then
             end
         end)
         
-     --   print("[GLIDE License Plates] Created " .. createdCount .. " plates with restored colors")
         return createdCount > 0
     end
     
-    -- Enhanced save hook that ensures colors are saved
+    -- Enhanced save hook that ensures colors and scales are saved
     hook.Add("OnEntityCreated", "GlideLicensePlates.SaveCompleteData", function(ent)
-        timer.Simple(1, function() -- Longer delay to ensure plates are fully created
+        timer.Simple(1, function()
             if IsValid(ent) and ent.IsGlideVehicle then
                 SaveCompleteePlateData(ent)
             end
@@ -944,8 +953,6 @@ if SERVER then
             return
         end
         
-      --  print("[GLIDE License Plates] Starting plate restoration process")
-        
         -- Mark as restoring
         restoringVehicles[ent] = true
         
@@ -977,7 +984,6 @@ if SERVER then
             
             -- Skip if restoring
             if restoringVehicles[ent] or ent._RestoreFromDupe then
-              --  print("[GLIDE License Plates] Skipping automatic creation - restoration in progress")
                 return
             end
             
@@ -993,16 +999,13 @@ if SERVER then
         pendingRestores = {}
         restoringVehicles = {}
     end)
-
     
     -- Advanced Duplicator 2 support
     if AdvDupe2 then
         hook.Add("AdvDupe2_PrePaste", "GlideLicensePlates.AdvDupe2Pre", function(data)
-        --    print("[GLIDE License Plates] AdvDupe2 paste starting")
         end)
         
         hook.Add("AdvDupe2_PostPaste", "GlideLicensePlates.AdvDupe2Post", function(data)
-        --    print("[GLIDE License Plates] AdvDupe2 paste finished")
             timer.Simple(1, function()
                 duplicatingEntities = {}
             end)
