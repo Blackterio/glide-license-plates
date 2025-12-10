@@ -28,6 +28,7 @@ function ENT:SetupDataTables()
     self:NetworkVar("Angle", 1, "BaseAngles")
     self:NetworkVar("Vector", 1, "TextColor") 
     self:NetworkVar("Float", 1, "TextAlpha")
+	self:NetworkVar("Vector", 2, "TextOffset") -- NEW: Text position offset	
     
     -- Setup network var callbacks
     if CLIENT then
@@ -59,6 +60,10 @@ function ENT:SetupDataTables()
                 ent.CachedTextColor.a = new
             end
         end)
+
+        self:NetworkVarNotify("TextOffset", function(ent, name, old, new)
+            ent.TextOffset = new
+        end)		
     end
 end
  
@@ -83,7 +88,8 @@ function ENT:Initialize()
         self.PlateText = self:GetPlateText() or ""
         self.PlateScale = self:GetPlateScale() or 0.5
         self.PlateFont = self:GetPlateFont() or "Arial"
-        
+		self.TextOffset = self:GetTextOffset() or Vector(0, 0, 0) 
+		
         local colorVec = self:GetTextColor()
         if colorVec then
             self.CachedTextColor = Color(

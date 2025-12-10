@@ -136,8 +136,19 @@ local function DrawPlateTextImproved(plateEntity)
     
     local mins, maxs = plateEntity:GetModelBounds()
     local forward = textAngles:Forward()
-    local offsetPos = worldPos + forward * (maxs.x * 0.1)
-    
+	local right = textAngles:Right() 
+    local up = textAngles:Up()   
+
+    local offsetPos = worldPos + forward * (maxs.x * 0.1)    
+	
+ -- Apply custom text offset (X=Forward, Y=Right, Z=Up relative to plate)
+    local textOffset = plateEntity:GetTextOffset()
+    if textOffset and textOffset ~= Vector(0,0,0) then
+        offsetPos = offsetPos + (forward * textOffset.x) + (right * -textOffset.y) + (up * textOffset.z)
+        -- Note: Y is inverted (-textOffset.y) typically to match standard left/right mapping in Source, 
+        -- remove minus if direction is opposite to desired.
+    end   
+	
     local renderAng = Angle(textAngles.p, textAngles.y, textAngles.r)
     renderAng:RotateAroundAxis(renderAng:Up(), 90)
     renderAng:RotateAroundAxis(renderAng:Forward(), 90)
