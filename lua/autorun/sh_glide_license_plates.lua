@@ -30,6 +30,7 @@ GlideLicensePlates.PlateTypes = {
         defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
         defaultScale = mercosurtextscale, 
 		defaultTextOffset = mercosurtextposition,
+		defaultSkin = 0,		
     },
     ["argold"] = {
         pattern = "ABC 123",

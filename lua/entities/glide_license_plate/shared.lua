@@ -28,7 +28,7 @@ function ENT:SetupDataTables()
     self:NetworkVar("Angle", 1, "BaseAngles")
     self:NetworkVar("Vector", 1, "TextColor") 
     self:NetworkVar("Float", 1, "TextAlpha")
-	self:NetworkVar("Vector", 2, "TextOffset") -- NEW: Text position offset	
+	self:NetworkVar("Vector", 2, "TextOffset") 
     
     -- Setup network var callbacks
     if CLIENT then
@@ -64,6 +64,40 @@ function ENT:SetupDataTables()
         self:NetworkVarNotify("TextOffset", function(ent, name, old, new)
             ent.TextOffset = new
         end)		
+    end
+    
+    -- Save Support
+    if SERVER then
+
+        local VehicleMeta = FindMetaTable("Entity")
+        if VehicleMeta then
+          
+            local function GLIDESave_TransferPlateData(entity, saveTable)
+                if IsValid(entity.LicensePlateEntity) and entity.LicensePlateEntity:GetClass() == "glide_license_plate" then
+                    local plate = entity.LicensePlateEntity
+                    
+                    saveTable.GLIDE_PlateText = plate:GetPlateText()
+                    saveTable.GLIDE_PlateScale = plate:GetPlateScale()
+                    saveTable.GLIDE_PlateFont = plate:GetPlateFont()
+                    saveTable.GLIDE_ModelRotation = plate:GetModelRotation()
+                    saveTable.GLIDE_BasePosition = plate:GetBasePosition()
+                    saveTable.GLIDE_BaseAngles = plate:GetBaseAngles()
+                    saveTable.GLIDE_TextColor = plate:GetTextColor()
+                    saveTable.GLIDE_TextAlpha = plate:GetTextAlpha()
+                    saveTable.GLIDE_TextOffset = plate:GetTextOffset()
+                    
+                    saveTable.GLIDE_PlateModel = plate:GetModel()
+                    saveTable.GLIDE_PlateMaterial = plate:GetMaterial()
+                    
+                    saveTable.GLIDE_HasLicensePlate = true
+                end
+            end
+
+            if IsValid(self:GetParentVehicle()) then
+
+                self:GetParentVehicle().GLIDE_LicensePlate_PopulateSaveTable = GLIDESave_TransferPlateData
+            end
+        end
     end
 end
  
@@ -217,6 +251,7 @@ if SERVER then
     end
     
     function ENT:OnRemove()
+        -- Remove the reference from the parent vehicle when the plate is removed
         if IsValid(self.ParentVehicle) then
             self.ParentVehicle.LicensePlateEntity = nil
             
@@ -227,7 +262,7 @@ if SERVER then
     end
     
     function ENT:Think()
-        -- Update position in the server
+        -- Update position in the server (for physics/network sync)
         if IsValid(self:GetParentVehicle()) then
             self:UpdatePosition()
         end
@@ -282,7 +317,11 @@ if SERVER then
         self.ParentVehicle = vehicle
         self:SetParentVehicle(vehicle)
         
+        -- Make the plate delete when the vehicle is deleted
         vehicle:DeleteOnRemove(self)
+        
+        -- Assign the license plate entity to the vehicle (CRUCIAL for saving)
+        vehicle.LicensePlateEntity = self
     end
     
     function ENT:UpdatePlateModel(newModel)
@@ -323,7 +362,6 @@ if SERVER then
     end
 end
 
--- Prevent toolgun, physgun and dupe interactions
 function ENT:CanTool(ply, trace, tool)
     return true
 end
