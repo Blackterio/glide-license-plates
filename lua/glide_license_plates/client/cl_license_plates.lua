@@ -263,10 +263,13 @@ local function CreateClientOptions()
     if not Glide or not Glide.Config then return end
     
     list.Set("GlideConfigExtensions", "LicensePlates", function(config, panel)
-        -- Use localization for the header
+
         config.CreateHeader(panel, language.GetPhrase("glide_license_plates_config_header"))
-        
-        -- Use localization for toggle label
+		
+    config.CreateButton( panel, language.GetPhrase("glide_plate_helper"), function()
+    RunConsoleCommand("glide_plate_help")	
+    end )
+
         config.CreateToggle(panel, language.GetPhrase("glide_license_plates_config_toggle"), 
             GetConVar("glide_license_plates_enabled"):GetBool(), 
             function(value)
@@ -274,7 +277,7 @@ local function CreateClientOptions()
             end
         )
         
-        -- Use localization for slider label
+
         config.CreateSlider(panel, language.GetPhrase("glide_license_plates_config_slider"),
             GetConVar("glide_license_plates_distance"):GetInt(),
             100, 2000, 0,
@@ -294,13 +297,12 @@ end)
 
 -- Help command for license plates
 concommand.Add("glide_plate_help", function()
-    -- Use localization for all chat messages
+
     chat.AddText(Color(255, 0, 100), "[GLIDE License Plates] " .. language.GetPhrase("glide_license_plates_help_header"))
     chat.AddText(Color(100, 255, 100), "[GLIDE License Plates] " .. language.GetPhrase("glide_license_plates_help_available"))
 
     chat.AddText(Color(255, 255, 100), "glide_random_plate <plate_id>", Color(255, 255, 255), " - " .. language.GetPhrase("glide_license_plates_help_random_plate"))
     chat.AddText(Color(255, 255, 100), "glide_change_plate <text>", Color(255, 255, 255), " - " .. language.GetPhrase("glide_license_plates_help_change_plate"))
-    -- CVAR command descriptions use the localization key directly
     chat.AddText(Color(255, 255, 100), "glide_license_plates_enabled 0/1", Color(255, 255, 255), " - " .. language.GetPhrase("glide_license_plates_help_toggle_enabled"))
     chat.AddText(Color(255, 255, 100), "glide_license_plates_distance <num>", Color(255, 255, 255), " - " .. language.GetPhrase("glide_license_plates_help_change_distance"))
     chat.AddText(Color(255, 255, 100), "glide_change_text_color <r> <g> <b> [a]", Color(255, 255, 255), " - " .. language.GetPhrase("glide_license_plates_help_change_color"))

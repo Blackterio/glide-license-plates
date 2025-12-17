@@ -191,7 +191,7 @@ function ENT:Restore(table)
         self:SetNotSolid(isHidden)
     end
     
-    -- ********** DELAYED APPLICATION (CRITICAL) **********
+
     if SERVER then
         -- Delay the final setup until the next frame to ensure the parent vehicle is fully restored.
         timer.Simple(0, function()

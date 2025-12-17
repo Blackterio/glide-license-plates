@@ -1,7 +1,7 @@
 -- lua/weapons/gmod_tool/stools/glide_plate_editor.lua
 
 TOOL.Category = "Glide"
-TOOL.Name = "License Plate Editor"
+TOOL.Name = "#tool.glide_plate_editor.name"
 TOOL.Command = nil
 TOOL.ConfigName = "" 
 
@@ -59,12 +59,6 @@ local ALLOWED_PLATES = {
     }
 }
 
-if CLIENT then
-    -- Tool translations are now handled by localization files (e.g., glide_license_plates_languages.properties)
-    -- The previous language.Add calls for tool properties and UI labels are now unnecessary 
-    -- as the localization keys (#tool.glide_plate_editor.desc, #glide_pe_header_select, etc.) 
-    -- are used directly in the code or automatically by the tool system.
-end
 
 -- Networking setup
 if SERVER then
@@ -159,7 +153,7 @@ function TOOL:LeftClick(trace)
     if not hasPlates then 
         wep:SetNWEntity(SELECTED_VEHICLE_NW, NULL)
         targetEnt = NULL
-        -- FIX: Use localization key prefixed with # for server-side chat print
+        -- Use localization key prefixed with # for server-side chat print
         ply:ChatPrint("#glide_pe_support_warning") 
     else
         wep:SetNWEntity(SELECTED_VEHICLE_NW, ent)
@@ -429,7 +423,7 @@ if CLIENT then
 
         -- 0. PRESETS (Added Feature)
         local presetParams = {
-            -- FIX: Use localization key for the Presets label
+            -- Use localization key for the Presets label
             Label = language.GetPhrase("glide_pe_presets"), 
             MenuButton = 1,
             Folder = "glide_license_plate",
@@ -523,7 +517,7 @@ if CLIENT then
             for typeKey, typeData in pairs(ALLOWED_PLATES) do
                 typeCombo:AddChoice(typeData.label, typeKey, typeKey == currentType)
             end
-        end // <--- FIX APPLIED HERE: Used 'end' instead of '}' to close the function
+        end
         PopulateTypes() 
         
         -- Manual handling for ComboBox to update ConVar
