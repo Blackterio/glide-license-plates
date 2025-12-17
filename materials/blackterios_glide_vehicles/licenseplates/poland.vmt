@@ -1,0 +1,38 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "blackterios_glide_vehicles/licenseplates/poland"
+	"$bumpmap" "blackterios_glide_vehicles/licenseplates/plate_normal"
+
+	"$phong" "1"
+	"$phongexponent" "1"
+	"$phongboost"	".1"
+	"$envmap" "env_cubemap"
+	"$envmapfresnel" "1"
+	"$phongfresnelranges" "[.3 .3 3]"
+	"$envmaptint" "[0.1 0.1 0.1 ]"
+	"$phongfix" "{255 255 255 }" 
+
+
+	Proxies
+	{
+		Equals
+		{
+
+			resultVar $phongtint
+		}
+		Add
+		{
+			srcVar1 $phongfix
+			srcVar2 $phongtint
+			resultVar $phongtint
+		}		
+
+		Equals
+		{
+			srcVar1 $color
+			resultVar $phongtint
+		}
+	}
+}
+
+

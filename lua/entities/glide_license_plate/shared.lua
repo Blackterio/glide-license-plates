@@ -3,7 +3,7 @@
 AddCSLuaFile()
 
 ENT.Type = "anim"
-ENT.Base = "base_anim"
+ENT.Base = "base_gmodentity"
 ENT.PrintName = "GLIDE License Plate"
 ENT.Category = "GLIDE"
 ENT.Spawnable = false
@@ -17,6 +17,7 @@ ENT.ParentVehicle = NULL
 ENT.ModelRotation = Angle(0, 0, 0)
 ENT.BasePosition = Vector(0, 0, 0) 
 ENT.BaseAngles = Angle(0, 0, 0)
+ENT.PlateSkin = 0
 
 function ENT:SetupDataTables()
     self:NetworkVar("String", 0, "PlateText")
@@ -29,7 +30,8 @@ function ENT:SetupDataTables()
     self:NetworkVar("Vector", 1, "TextColor") 
     self:NetworkVar("Float", 1, "TextAlpha")
 	self:NetworkVar("Vector", 2, "TextOffset") 
-    
+	self:NetworkVar("Int", 0, "PlateSkin") 
+	
     -- Setup network var callbacks
     if CLIENT then
         self:NetworkVarNotify("PlateText", function(ent, name, old, new)
@@ -43,7 +45,14 @@ function ENT:SetupDataTables()
         self:NetworkVarNotify("PlateFont", function(ent, name, old, new)
             ent.PlateFont = new
         end)
-        
+		
+        self:NetworkVarNotify("PlateSkin", function(ent, name, old, new) 
+            ent.PlateSkin = new
+            if IsValid(ent) then
+                ent:SetSkin(new) 
+            end
+        end)
+		
         self:NetworkVarNotify("TextColor", function(ent, name, old, new)
             if new then
                 ent.CachedTextColor = Color(
@@ -101,6 +110,127 @@ function ENT:SetupDataTables()
     end
 end
  
+-- =========================================================================
+-- Serialization for Saves and Duplicators 
+-- =========================================================================
+
+-- Function called when the entity is saved (vanilla save or dupe)
+function ENT:Save(table)
+    -- Serialize properties that need to persist (Network Variables and local properties)
+    
+    table.PlateText = self:GetPlateText()
+    table.PlateScale = self:GetPlateScale()
+    table.PlateFont = self:GetPlateFont()
+    table.PlateSkin = self:GetPlateSkin()
+    table.TextColor = self:GetTextColor() -- Vector
+    table.TextAlpha = self:GetTextAlpha() -- Float
+    table.TextOffset = self:GetTextOffset() -- Vector
+    table.ModelRotation = self:GetModelRotation() -- Angle
+
+    -- Glide-specific saved properties
+    table.PlateType = self.PlateType 
+    table.GlideSavedAlpha = self.GlideSavedAlpha 
+    table.IsHidden = self:GetNoDraw() -- Current visibility state
+    
+    -- Also save the current model
+    table.Model = self:GetModel()
+end
+
+-- Function called when the entity is restored (vanilla save or dupe)
+function ENT:Restore(table)
+    -- Deserialize properties and apply them
+    self.IsRestored = true -- Flag the entity as being restored
+
+    if table.Model then
+        self:SetModel(table.Model)
+    end
+    
+    -- Restore all NWVars (Set... functions)
+    if table.PlateText then
+        self:SetPlateText(table.PlateText) 
+    end
+    
+    if table.PlateScale then
+        self:SetPlateScale(table.PlateScale)
+    end
+    
+    if table.PlateFont then
+        self:SetPlateFont(table.PlateFont)
+    end
+
+    if table.PlateSkin ~= nil then
+        self:SetSkin(table.PlateSkin) 
+        self:SetPlateSkin(table.PlateSkin)
+    end
+    
+    if table.TextColor and table.TextAlpha ~= nil then
+        self:SetTextColor(table.TextColor)
+        self:SetTextAlpha(table.TextAlpha)
+    end
+
+    if table.TextOffset then
+        self:SetTextOffset(table.TextOffset)
+    end
+
+    if table.ModelRotation then
+        self:SetModelRotation(table.ModelRotation)
+    end
+    
+    -- Glide-specific restored properties
+    if table.PlateType then
+        self.PlateType = table.PlateType
+    end
+    if table.GlideSavedAlpha ~= nil then
+        self.GlideSavedAlpha = table.GlideSavedAlpha
+    end
+    
+    if table.IsHidden ~= nil then
+        local isHidden = tobool(table.IsHidden)
+        self:SetNoDraw(isHidden)
+        self:SetTextAlpha(isHidden and 0 or (self.GlideSavedAlpha or 255))
+        self:SetNotSolid(isHidden)
+    end
+    
+    -- ********** DELAYED APPLICATION (CRITICAL) **********
+    if SERVER then
+        -- Delay the final setup until the next frame to ensure the parent vehicle is fully restored.
+        timer.Simple(0, function()
+            if not IsValid(self) then return end
+            
+            -- Force-apply the model and rotation via the server update functions
+            if self.UpdatePlateModel and table.Model then
+                self:UpdatePlateModel(table.Model) -- Updates model, physics, and position
+            end
+            
+            if self.UpdateModelRotation and table.ModelRotation then
+                self:UpdateModelRotation(table.ModelRotation)
+            end
+            
+            -- CRITICAL: Force the text update with the saved text. 
+            -- This ensures the custom logic of the system applies the restored NWVar.
+            if self.UpdatePlateText and table.PlateText then
+                self:UpdatePlateText(table.PlateText)
+            end
+            
+            -- If the vehicle uses the old single-plate reference, update the text field on the vehicle
+            local vehicle = self:GetParentVehicle()
+            if IsValid(vehicle) and vehicle.LicensePlateEntity == self then
+                vehicle.LicensePlateText = self:GetPlateText() 
+            end
+
+        end)
+    end
+
+    -- Ensure physics is set up for the restored model
+    if SERVER and self:GetModel() ~= "" then
+        self:PhysicsInit(SOLID_VPHYSICS)
+        local phys = self:GetPhysicsObject()
+        if IsValid(phys) then
+            phys:Sleep()
+        end
+    end
+end
+ 
 function ENT:Initialize()
     if SERVER then
         self:SetModel("")
@@ -123,6 +253,7 @@ function ENT:Initialize()
         self.PlateScale = self:GetPlateScale() or 0.5
         self.PlateFont = self:GetPlateFont() or "Arial"
 		self.TextOffset = self:GetTextOffset() or Vector(0, 0, 0) 
+		self.PlateSkin = self:GetPlateSkin() or 0
 		
         local colorVec = self:GetTextColor()
         if colorVec then

@@ -14,20 +14,49 @@ end
 
 -- System configuration
 GlideLicensePlates.Config = {
-    MaxCharacters = 8,
+    MaxCharacters = 20,
     DefaultFont = "Arial",
     DefaultModel = "models/sprops/rectangles_superthin/size_1/rect_3x12.mdl",
-    DefaultScale = 0.5
+    DefaultScale = 0.5,
+    DefaultSkin = 0
 }
+local mercosurmodel = "models/blackterios_glide_vehicles/licenseplates/mercosurplate.mdl"
 local mercosurtextscale = 0.37
-local mercosurtextposition = Vector(0, 0, -0.55)	
+local mercosurtextposition = Vector(0, 0, -0.55)
+local mercosureuropetextfont = "GL-Nummernschild-Mtl"
+
+local textcolorblack = {r = 0, g = 0, b = 0, a = 255}
+local textcolorred = {r = 205, g = 10, b = 10, a = 255}
+
+local usasmallplate = "models/blackterios_glide_vehicles/licenseplates/smallplate.mdl"
+local usatextscale = 0.37
+local usatextfont = "Dealerplate California"
+
+local floridatextcolors = {r = 47, g = 116, b = 83, a = 255}
+local floridatextposition = Vector(0.2, 0, 0.15)
+local floridaskin = 3
+
+local illinoistextposition = Vector(0.2, 0, -0.2)
+local illinoisskin = 4 
+
+local europelongplate = "models/blackterios_glide_vehicles/licenseplates/europeplate.mdl"	
+local europetextscale = 0.34
+local europetextposition = Vector(0.2, 0.6, 0.1)
+local europetextposition2 = Vector(0.2, 0.8, 0.1)
+
+local gtatextposition = Vector(0.2, 0, -0.5)
+local gtatextcolor1 = {r = 18, g = 28, b = 97, a = 255}
+local gtatextcolor2 = {r = 180, g = 196, b = 54, a = 255}
+
 GlideLicensePlates.PlateTypes = { 
+
+--LATAM
     ["argmercosur"] = {
         pattern = "AB 123 CD",
-        model = "models/blackterios_glide_vehicles/licenseplates/argentinamercosur.mdl",
+        model = mercosurmodel,
         description = "Mercosur Argentina (AB 123 CD) - Standard plate",
-        defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor = textcolorblack,
         defaultScale = mercosurtextscale, 
 		defaultTextOffset = mercosurtextposition,
 		defaultSkin = 0,		
@@ -38,7 +67,8 @@ GlideLicensePlates.PlateTypes = {
         description = "Argentina Old (ABC 123)",
         defaultFont = "coolvetica",
         defaultTextColor = {r = 255, g = 255, b = 255, a = 255},
-        defaultScale = 0.33,  
+        defaultScale = 0.33,
+        defaultSkin = 0,
     },
     ["argvintage"] = {
         pattern = "A123456",
@@ -46,36 +76,655 @@ GlideLicensePlates.PlateTypes = {
         description = "Argentina Vintage (A123456)",
         defaultFont = "Times New Roman",
         defaultTextColor = {r = 255, g = 255, b = 255, a = 255},
-        defaultScale = 0.4,  
+        defaultScale = 0.4,
+        defaultSkin = 0,
     },    
 	["brasilmercosur"] = {
         pattern = "ABC1D23",
-        model = "models/blackterios_glide_vehicles/licenseplates/brasilmercosur.mdl",
+        model = mercosurmodel,
         description = "Mercosur Brasil (ABC1D23)",
-        defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
         defaultScale = mercosurtextscale,  
-		defaultTextOffset = mercosurtextposition,		
+		defaultTextOffset = mercosurtextposition,
+        defaultSkin = 1,
     },
 	["paraguaymercosur"] = {
         pattern = "ABCD 123",
-        model = "models/blackterios_glide_vehicles/licenseplates/paraguaymercosur.mdl",
+        model = mercosurmodel,
         description = "Mercosur Paraguay (ABCD 123)",
-        defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
         defaultScale = mercosurtextscale, 
-		defaultTextOffset = mercosurtextposition,		
+		defaultTextOffset = mercosurtextposition,
+        defaultSkin = 2,
     },	
 	["uruguaymercosur"] = {
         pattern = "ABC 1234",
-        model = "models/blackterios_glide_vehicles/licenseplates/uruguaymercosur.mdl",
+        model = mercosurmodel,
         description = "Mercosur Uruguay (ABC 1234)",
-        defaultFont = "GL-Nummernschild-Mtl",
-        defaultTextColor = {r = 0, g = 0, b = 0, a = 255},
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
         defaultScale = mercosurtextscale,  
-		defaultTextOffset = mercosurtextposition,		
+		defaultTextOffset = mercosurtextposition,
+        defaultSkin = 3,
     },
+	
+--USA
+	["usacalifornia"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "California (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = {r = 18, g = 28, b = 97, a = 255},
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, -0.5),
+        defaultSkin = 0,
+    },		
+	["usacoloradov1"] = {
+        pattern = "123 ABC",
+        model = usasmallplate,
+        description = "Colorado V1 (123 ABC)",
+        defaultFont = usatextfont,
+        defaultTextColor = {r = 5, g = 30, b = 16, a = 255},
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, 0.01),
+        defaultSkin = 1,
+    },		
+	["usacoloradov2"] = {
+        pattern = "ABC 123",
+        model = usasmallplate,
+        description = "Colorado V2 (ABC 123)",
+        defaultFont = usatextfont,
+        defaultTextColor = {r = 5, g = 30, b = 16, a = 255},
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, 0.01),
+        defaultSkin = 1,
+    },		
+	["usadelaware"] = {
+        pattern = "123456",
+        model = usasmallplate,
+        description = "Delaware (123456)",
+        defaultFont = usatextfont,
+        defaultTextColor = {r = 220, g = 189, b = 88, a = 255},
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, 0.15),
+        defaultSkin = 2,
+    },		
+	["usafloridav1"] = {
+        pattern = "AB1   2CD",
+        model = usasmallplate,
+        description = "Florida V1 (AB1   2CD)",
+        defaultFont = usatextfont,
+        defaultTextColor = floridatextcolors,
+        defaultScale = usatextscale,  
+		defaultTextOffset = floridatextposition,
+        defaultSkin = floridaskin,
+    },		
+	["usafloridav2"] = {
+        pattern = "A12   3BC",
+        model = usasmallplate,
+        description = "Florida V2 (A12   3BC)",
+        defaultFont = usatextfont,
+        defaultTextColor = floridatextcolors,
+        defaultScale = usatextscale,  
+		defaultTextOffset = floridatextposition,
+        defaultSkin = floridaskin,
+    },		
+	["usafloridav3"] = {
+        pattern = "123   4AB",
+        model = usasmallplate,
+        description = "Florida V3 (123   4AB)",
+        defaultFont = usatextfont,
+        defaultTextColor = floridatextcolors,
+        defaultScale = usatextscale,  
+		defaultTextOffset = floridatextposition,
+        defaultSkin = floridaskin,
+    },		
+	["usafloridav4"] = {
+        pattern = "12A   BCD",
+        model = usasmallplate,
+        description = "Florida V4 (12A   BCD)",
+        defaultFont = usatextfont,
+        defaultTextColor = floridatextcolors,
+        defaultScale = usatextscale,  
+		defaultTextOffset = floridatextposition,
+        defaultSkin = floridaskin,
+    },		
+	["usafloridav5"] = {
+        pattern = "123   ABC",
+        model = usasmallplate,
+        description = "Florida V5 (123   ABC)",
+        defaultFont = usatextfont,
+        defaultTextColor = floridatextcolors,
+        defaultScale = usatextscale,  
+		defaultTextOffset = floridatextposition,
+        defaultSkin = floridaskin,
+    },		
+	["usaillinoisv1"] = {
+        pattern = "AB1 2345",
+        model = usasmallplate,
+        description = "Illinois V1 (AB1 2345)",
+        defaultFont = usatextfont,
+        defaultTextColor = textcolorred,
+        defaultScale = usatextscale,  
+		defaultTextOffset = illinoistextposition,
+        defaultSkin = illinoisskin,
+    },		
+	["usaillinoisv2"] = {
+        pattern = "A12 3456",
+        model = usasmallplate,
+        description = "Illinois V2 (A12 3456)",
+        defaultFont = usatextfont,
+        defaultTextColor = textcolorred,
+        defaultScale = usatextscale,  
+		defaultTextOffset = illinoistextposition,
+        defaultSkin = illinoisskin,
+    },	
+	["usanewyork"] = {
+        pattern = "ABC  5329",
+        model = usasmallplate,
+        description = "New York (ABC  5329)",
+        defaultFont = usatextfont,
+        defaultTextColor = {r = 3, g = 4, b = 67, a = 255},
+        defaultScale = 0.36,  
+		defaultTextOffset = Vector(0.2, 0, -0.2),
+        defaultSkin = 5,
+    },		
+	["usaoklahomav1"] = {
+        pattern = "   123ABC",
+        model = usasmallplate,
+        description = "Oklahoma V1 (   123ABC)",
+        defaultFont = usatextfont,
+        defaultTextColor = textcolorred,
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, 0),
+        defaultSkin = 6,
+    },			
+	["usaoklahomav2"] = {
+        pattern = "   ABC123",
+        model = usasmallplate,
+        description = "Oklahoma V2 (   ABC123)",
+        defaultFont = usatextfont,
+        defaultTextColor = textcolorred,
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, 0),
+        defaultSkin = 6,
+    },		
+	["usatexas"] = {
+        pattern = "AB1  C234",
+        model = usasmallplate,
+        description = "Texas (AB1  C234)",
+        defaultFont = usatextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = 0.3594,  
+		defaultTextOffset = Vector(0.2, 0, -0.2),
+        defaultSkin = 7,
+    },		
+	["usawisconsin"] = {
+        pattern = "ABC-1234",
+        model = usasmallplate,
+        description = "Wisconsin (ABC-1234)",
+        defaultFont = usatextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, -0.4),
+        defaultSkin = 8,
+    },			
+	["usawyoming"] = {
+        pattern = "   123456",
+        model = usasmallplate,
+        description = "Wyoming (   123456)",
+        defaultFont = usatextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = 0.36,  
+		defaultTextOffset = Vector(0.2, 0, 0),
+        defaultSkin = 9,
+    },	
+	
+--Europe	
+	["europealbaniav1"] = {
+        pattern = "AB 1234 C",
+        model = europelongplate,
+        description = "Albania V1 (AB 1234 C)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 0,
+    },		
+	["europealbaniav2"] = {
+        pattern = "AB 123 CD",
+        model = europelongplate,
+        description = "Albania V2 (AB 123 CD)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 0,
+    },		
+	["europeaustria"] = {
+        pattern = "A 123 BC",
+        model = europelongplate,
+        description = "Austria (A 123 BC)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 1,
+    },			
+	["europebelgium"] = {
+        pattern = "1-ABC-234",
+        model = europelongplate,
+        description = "Belgium (1-ABC-234)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorred,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 2,
+    },
+	["europebulgaria"] = {
+        pattern = "A 1234 BC",
+        model = europelongplate,
+        description = "Bulgaria (A 1234 BC)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 3,
+    },		
+	["europeczech"] = {
+        pattern = "1A2 3456",
+        model = europelongplate,
+        description = "Czech Republic (1A2 3456)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 4,
+    },		
+	["europedenmark"] = {
+        pattern = "AB 12 345",
+        model = europelongplate,
+        description = "Denmark (AB 12 345)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 5,
+    },		
+	["europefinland"] = {
+        pattern = "ABC-123",
+        model = europelongplate,
+        description = "Finland (ABC-123)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 6,
+    },		
+	["europefrance"] = {
+        pattern = "AB-123-BC",
+        model = europelongplate,
+        description = "France (AB-123-BC)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 7,
+    },		
+	["europegermany"] = {
+        pattern = "AB CD 1234",
+        model = europelongplate,
+        description = "Germany (AB CD 1234)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 8,
+    },	
+	["europegreatbritain"] = {
+        pattern = "ABC 1234",
+        model = europelongplate,
+        description = "UK EU (ABC 1234)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 9,
+    },		
+	["greatbritain"] = {
+        pattern = "AB1C DEF",
+        model = europelongplate,
+        description = "UK (AB1C DEF)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = Vector(0.2, -0.15, 0),
+        defaultSkin = 10,
+    },		
+	["europegreece"] = {
+        pattern = "ABC-1234",
+        model = europelongplate,
+        description = "Greece (ABC-1234)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 11,
+    },		
+	["europehungary"] = {
+        pattern = "AB CD-123",
+        model = europelongplate,
+        description = "Hungary (AB CD-123)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 12,
+    },		
+	["europeireland"] = {
+        pattern = "123-A-45678",
+        model = europelongplate,
+        description = "Ireland (123-A-45678)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = 0.31,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 13,
+    },		
+	["europeitaly"] = {
+        pattern = "AB 123C4",
+        model = europelongplate,
+        description = "Italy (AB 123C4)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 14,
+    },		
+	["europenetherlands"] = {
+        pattern = "ABC-12-D",
+        model = europelongplate,
+        description = "Netherlands (ABC-12-D)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 15,
+    },		
+	["europenorway"] = {
+        pattern = "AB 12345",
+        model = europelongplate,
+        description = "Norway (AB 12345)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition,
+        defaultSkin = 16,
+    },		
+	["europepoland"] = {
+        pattern = "AB-1234C",
+        model = europelongplate,
+        description = "Poland (AB-1234C)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 17,
+    },		
+	["europeportugalv1"] = {
+        pattern = "AB12CD",
+        model = europelongplate,
+        description = "Portugal V1 (AB12CD)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 18,
+    },		
+	["europeportugalv2"] = {
+        pattern = "12 AB 34",
+        model = europelongplate,
+        description = "Portugal V2 (12 AB 34)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 18,
+    },	
+	["europeportugalv3"] = {
+        pattern = "12 34 AB",
+        model = europelongplate,
+        description = "Portugal V3 (12 34 AB)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 18,
+    },		
+	["europeromania"] = {
+        pattern = "A 12 BCD",
+        model = europelongplate,
+        description = "Romania (A 12 BCD)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 19,
+    },		
+	["russia"] = {
+        pattern = "A123CD",
+        model = europelongplate,
+        description = "Russia (A123CD)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = Vector(0.2, -1.7, 0),
+        defaultSkin = 20,
+    },	
+	["europespain"] = {
+        pattern = "1234 ABC",
+        model = europelongplate,
+        description = "Spain (1234 ABC)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 21,
+    },		
+	["europeswedenv1"] = {
+        pattern = "ABC 123",
+        model = europelongplate,
+        description = "Sweden V1 (ABC 123)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 22,
+    },			
+	["europeswedenv2"] = {
+        pattern = "ABC 12D",
+        model = europelongplate,
+        description = "Sweden V2 (ABC 12D)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 22,
+    },	
+--Fictional
+	--GTA SA
+	["gtasalossantos"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "Los Santos SA (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor1,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 10,
+    },		
+	["gtasasanfierro"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "San Fierro SA (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor1,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 11,
+    },		
+	["gtasalasventuras"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "Las Venturas SA (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor1,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 12,
+    },		
+	-- GTA V
+	["gtavsanandreasblack"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "San Andreas - Black (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor2,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 13,
+    },	
+	["gtavsanandreasblue"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "San Andreas - Blue (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor2,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 14,
+    },		
+	["gtavsanandreaswhite"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "San Andreas - White (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor1,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 15,
+    },		
+	["gtavsanandreasalt"] = {
+        pattern = "1ABC234",
+        model = usasmallplate,
+        description = "San Andreas - Alternative (1ABC234)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor1,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 16,
+    },		
+	["gtavnorthyankton"] = {
+        pattern = "12ABC345",
+        model = usasmallplate,
+        description = "North Yankton (12ABC345)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor1,
+        defaultScale = usatextscale,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 17,
+    },		
+	--GTA IV
+	["gtaivlibertycity"] = {
+        pattern = "12ABC345",
+        model = usasmallplate,
+        description = "Liberty City (12ABC345)",
+        defaultFont = usatextfont,
+        defaultTextColor = gtatextcolor1,
+        defaultScale = 0.35,  
+		defaultTextOffset = gtatextposition,
+        defaultSkin = 18,
+    },		
 }
+
+-- This allows developers to use a single string (e.g., "usaplates") instead of listing all IDs.
+GlideLicensePlates.PlateGroups = {
+    ["usaplates"] = {
+        "usacalifornia",
+        "usacoloradov1",
+        "usacoloradov2",
+        "usadelaware",
+        "usafloridav1",
+        "usafloridav2",
+        "usafloridav3",
+        "usafloridav4",
+        "usafloridav5",
+        "usaillinoisv1",
+        "usaillinoisv2",
+        "usanewyork",
+        "usaoklahomav1",
+        "usaoklahomav2",
+        "usatexas",
+        "usawisconsin",
+        "usawyoming"
+    },    
+	["mercosurplates"] = {
+        "argmercosur",
+        "brasilmercosur",
+        "paraguaymercosur",
+        "uruguaymercosur"
+    },	
+	["argentinaplates"] = {
+        "argmercosur",
+        "argold",
+        "argvintage"
+    },	
+	["europeplates"] = {
+        "europealbaniav1",
+        "europealbaniav2",
+        "europeaustria",
+        "europebelgium",
+        "europebulgaria",
+        "europeczech",
+        "europedenmark",
+        "europefinland",
+        "europefrance",
+        "europegermany",
+        "europegreatbritain",
+        "greatbritain",
+        "europegreece",
+        "europehungary",
+        "europeireland",
+        "europeitaly",
+        "europenetherlands",
+        "europenorway",
+        "europepoland",
+        "europeportugalv1",
+        "europeportugalv2",
+        "europeportugalv3",
+        "europeromania",
+        "russia",
+        "europespain",
+        "europeswedenv1",
+        "europeswedenv2",
+    },
+	["gtasaplates"] = {
+        "gtasalasventuras",
+        "gtasalossantos",
+        "gtasasanfierro"
+    },		
+	["gtavplates"] = {
+        "gtavnorthyankton",
+        "gtavsanandreasalt",
+        "gtavsanandreasblack",
+        "gtavsanandreasblue",
+        "gtavsanandreaswhite"
+    },	
+}
+
+
 
 -- Function to get the default text color
 function GlideLicensePlates.GetPlateTextColor(plateType, customTextColor)
@@ -132,6 +781,21 @@ function GlideLicensePlates.GetPlateTextOffset(plateType, customOffset)
     return Vector(0, 0, 0)
 end
 
+-- Get the skin for a plate type
+function GlideLicensePlates.GetPlateSkin(plateType, customSkin)
+    -- Priority: custom skin from vehicle config > plate type default skin > system default
+    if customSkin and type(customSkin) == "number" and customSkin >= 0 then
+        return customSkin
+    end
+    
+    local plateConfig = GlideLicensePlates.PlateTypes[plateType]
+    if plateConfig and plateConfig.defaultSkin and plateConfig.defaultSkin >= 0 then
+        return plateConfig.defaultSkin
+    end
+    
+    return GlideLicensePlates.Config.DefaultSkin
+end
+
 -- Function to get the appropriate font for a plate type
 function GlideLicensePlates.GetPlateFont(plateType, customFont)
     -- Priority: custom font from vehicle config > plate type custom font > plate type default font > system default
@@ -169,15 +833,15 @@ end
 function GlideLicensePlates.GeneratePlate(plateType)
     local selectedType = plateType
     
-    -- Si plateType es una tabla (múltiples tipos), elegir uno aleatoriamente
+    -- If plateType is a table (multiple types), choose one randomly
     if type(plateType) == "table" and #plateType > 0 then
         selectedType = plateType[math.random(1, #plateType)]
     elseif type(plateType) == "table" and #plateType == 0 then
-        -- Si la tabla está vacía, usar tipo por defecto
+        -- If the table is empty, use default type
         selectedType = "argmercosur"
     end
     
-    -- Verificar que el tipo seleccionado existe
+    -- Verify that the selected type exists
     local config = GlideLicensePlates.PlateTypes[selectedType]
     if not config then
         selectedType = "argmercosur"
@@ -192,19 +856,19 @@ function GlideLicensePlates.GeneratePlate(plateType)
         
         -- Verify if it is a letter (A-Z)
         if string.match(char, "[A-Z]") then
-            -- Generar letra aleatoria
+            -- Generate random letter
             result = result .. string.char(math.random(65, 90)) -- A-Z
         -- Verify if it is a number (0-9)  
         elseif string.match(char, "[0-9]") then
             -- Generate random number
             result = result .. tostring(math.random(0, 9))
         else
-            -- Mantain special characters
+            -- Keep special characters
             result = result .. char
         end
     end
     
-    return result, selectedType -- Devolver también el tipo seleccionado
+    return result, selectedType -- Return also the selected type
 end
 
 -- Validate vehicle's license plate configuration
@@ -214,7 +878,7 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
     
     if not vehicle.LicensePlateConfigs then return false end
     
-    -- Validar cada configuración de matrícula
+    -- Validate each license plate configuration
     for i, config in ipairs(vehicle.LicensePlateConfigs) do
         if config.textColor then
             if type(config.textColor) ~= "table" then
@@ -235,20 +899,65 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
             end
         end
 		
-if type(config.plateType) == "string" and string.lower(config.plateType) == "anytype" then
+        if type(config.plateType) == "string" and string.lower(config.plateType) == "anytype" then
             local allTypes = {}
             for typeId, _ in pairs(GlideLicensePlates.PlateTypes) do
                 table.insert(allTypes, typeId)
             end
             config.plateType = allTypes
-            -- print("[GLIDE DEBUG] 'anytype' detectado, convertido a tabla con " .. #allTypes .. " tipos.")
+        end
+		
+		-- Check if plateType matches a defined Group
+-- We normalize input to a table, then expand any groups found into a single flat list.
+        local rawTypes = config.plateType
+        if type(rawTypes) == "string" then
+            rawTypes = { rawTypes } -- Convert single string to table for uniform handling
+        elseif type(rawTypes) ~= "table" then
+            rawTypes = {} 
         end
 
+        local expandedTypes = {}
+        for _, typeOrGroup in ipairs(rawTypes) do
+            if type(typeOrGroup) == "string" and GlideLicensePlates.PlateGroups[typeOrGroup] then
+                -- It is a group: insert all plates from this group
+                for _, plateId in ipairs(GlideLicensePlates.PlateGroups[typeOrGroup]) do
+                    table.insert(expandedTypes, plateId)
+                end
+            else
+                -- It is a single ID (or invalid, will be filtered later): insert directly
+                table.insert(expandedTypes, typeOrGroup)
+            end
+        end
+        
+        -- Update the config with the expanded list
+        config.plateType = expandedTypes
+
+        -- Validate plate type (Now acts purely as a filter for invalid IDs)
+        if type(config.plateType) == "table" then
+            -- Verify that the elements in the expanded list are valid PlateTypes
+            local validTypes = {}
+            for _, pType in ipairs(config.plateType) do
+                if type(pType) == "string" and GlideLicensePlates.PlateTypes[pType] then
+                    table.insert(validTypes, pType)
+                end
+            end
+            
+            if #validTypes == 0 then
+                print("[GLIDE License Plates] WARNING: Couldn't find valid types in configuration, using argmercosur (default)")
+                config.plateType = "argmercosur"
+            else
+                config.plateType = validTypes
+            end
+        else
+            -- Fallback if something went wrong or list is empty
+            config.plateType = "argmercosur"
+        end
+		
         -- Validate plate type (can be string or table)
         if not config.plateType then
             config.plateType = "argmercosur"
         elseif type(config.plateType) == "table" then
-			-- If its a table, verify that at least has a valid element
+            -- If it's a table, verify that at least has a valid element
             local validTypes = {}
             for _, pType in ipairs(config.plateType) do
                 if type(pType) == "string" and GlideLicensePlates.PlateTypes[pType] then
@@ -285,7 +994,7 @@ if type(config.plateType) == "string" and string.lower(config.plateType) == "any
             config.modelRotation = Angle(0, 0, 0)
         end
 		
-      -- Validate text offset
+        -- Validate text offset
         if config.textOffset then
             if type(config.textOffset) ~= "Vector" then
                 config.textOffset = nil
@@ -295,7 +1004,15 @@ if type(config.plateType) == "string" and string.lower(config.plateType) == "any
 		
         if config.scale ~= nil then
             if type(config.scale) ~= "number" or config.scale <= 0 then
-                config.scale = nil -- Será determinado por el tipo de placa
+                config.scale = nil -- Will be determined by the plate type
+            end
+        end
+        
+        -- Validate custom skin
+        if config.customSkin ~= nil then
+            if type(config.customSkin) ~= "number" or config.customSkin < 0 then
+                config.customSkin = nil -- Will be determined by the plate type
+                print("[GLIDE License Plates] Invalid customSkin, using plate type default")
             end
         end
         
@@ -380,9 +1097,14 @@ if SERVER then
             vehicle.SelectedPlateFonts = {}
         end
         
-        -- NEW: Store selected scales
+        -- Store selected scales
         if not vehicle.SelectedPlateScales then
             vehicle.SelectedPlateScales = {}
+        end
+        
+        -- Store selected skins
+        if not vehicle.SelectedPlateSkins then
+            vehicle.SelectedPlateSkins = {}
         end
         
         local globalPlateText = nil
@@ -449,6 +1171,7 @@ if SERVER then
             local plateText = nil
             local plateFont = nil
             local plateScale = nil
+            local plateSkin = nil
             
             -- Generate consistent text
             if not vehicle.LicensePlateTexts[plateId] then
@@ -511,6 +1234,10 @@ if SERVER then
             -- Determine the scale for this plate using hierarchy
             plateScale = GlideLicensePlates.GetPlateScale(plateType, config.scale)
             vehicle.SelectedPlateScales[plateId] = plateScale
+            
+            -- Determine the skin for this plate using hierarchy
+            plateSkin = GlideLicensePlates.GetPlateSkin(plateType, config.customSkin)
+            vehicle.SelectedPlateSkins[plateId] = plateSkin
 			
 			-- Determine the text offset for this plate
             local plateTextOffset = GlideLicensePlates.GetPlateTextOffset(plateType, config.textOffset)
@@ -540,6 +1267,7 @@ if SERVER then
             end
             
             plateEntity:SetModel(plateModel)
+            plateEntity:SetSkin(plateSkin)
             plateEntity:Spawn()
             plateEntity:Activate()
             
@@ -557,6 +1285,7 @@ if SERVER then
             plateEntity.PlateText = plateText
             plateEntity.PlateScale = plateScale 
             plateEntity.PlateFont = plateFont
+            plateEntity.PlateSkin = plateSkin
             plateEntity.TextOffset = plateTextOffset 
             -- Get color
             local textColor = GlideLicensePlates.GetPlateTextColor(plateType, config.textColor)
@@ -569,6 +1298,7 @@ if SERVER then
             plateEntity:SetPlateText(plateText)
             plateEntity:SetPlateScale(plateScale) 
             plateEntity:SetPlateFont(plateFont)
+            plateEntity:SetPlateSkin(plateSkin)
 			plateEntity:SetTextOffset(plateTextOffset) 			
             plateEntity:SetTextColor(Vector(textColor.r, textColor.g, textColor.b))
             plateEntity:SetTextAlpha(textColor.a)
@@ -582,12 +1312,14 @@ if SERVER then
                 plateEntity:SetBaseTransform(config.position or Vector(0, 0, 0), config.angles or Angle(0, 0, 0))
                 
                 plateEntity.PlateText = plateText
-                plateEntity.PlateScale = plateScale -- MODIFIED: Now uses the determined scale
+                plateEntity.PlateScale = plateScale
                 plateEntity.PlateFont = plateFont
+                plateEntity.PlateSkin = plateSkin
                 plateEntity.ParentVehicle = vehicle 
                 plateEntity.ModelRotation = config.modelRotation or Angle(0, 0, 0)
                 
                 plateEntity:UpdatePosition()
+                plateEntity.GlideInitialized = true
             end)
             
             -- Store references
@@ -646,9 +1378,14 @@ if SERVER then
                 vehicle.SelectedPlateFonts[plateId] = nil
             end
             
-            -- NEW: Clean the selected scale
+            -- Clean the selected scale
             if vehicle.SelectedPlateScales then
                 vehicle.SelectedPlateScales[plateId] = nil
+            end
+            
+            -- Clean the selected skin
+            if vehicle.SelectedPlateSkins then
+                vehicle.SelectedPlateSkins[plateId] = nil
             end
             
             print("[GLIDE License Plates] Plate " .. plateId .. " removed")
@@ -708,8 +1445,8 @@ if SERVER then
     local pendingRestores = {}
     local restoringVehicles = {}
     
-    -- Enhanced plate data storage that includes colors and scales
-    local function SaveCompleteePlateData(vehicle)
+    -- Enhanced plate data storage that includes colors, scales and skins
+    local function SaveCompletePlateData(vehicle)
         if not IsValid(vehicle) or not vehicle.IsGlideVehicle then return false end
         
         local plateData = {
@@ -742,6 +1479,12 @@ if SERVER then
         -- Save selected scales
         if vehicle.SelectedPlateScales and not table.IsEmpty(vehicle.SelectedPlateScales) then
             plateData.selectedPlateScales = table.Copy(vehicle.SelectedPlateScales)
+            hasData = true
+        end
+        
+        -- Save selected skins
+        if vehicle.SelectedPlateSkins and not table.IsEmpty(vehicle.SelectedPlateSkins) then
+            plateData.selectedPlateSkins = table.Copy(vehicle.SelectedPlateSkins)
             hasData = true
         end
         
@@ -790,7 +1533,8 @@ if SERVER then
         
         return false
     end
-   -- Enhanced plate creation with proper color and scale restoration
+    
+    -- Enhanced plate creation with proper color, scale and skin restoration
     local function CreatePlatesWithRestoredData(vehicle, plateData)
         if not IsValid(vehicle) or not plateData then return false end
         
@@ -819,9 +1563,14 @@ if SERVER then
             vehicle.SelectedPlateFonts = table.Copy(plateData.selectedPlateFonts)
         end
         
-        -- NEW: Restore selected scales
+        -- Restore selected scales
         if plateData.selectedPlateScales then
             vehicle.SelectedPlateScales = table.Copy(plateData.selectedPlateScales)
+        end
+        
+        -- Restore selected skins
+        if plateData.selectedPlateSkins then
+            vehicle.SelectedPlateSkins = table.Copy(plateData.selectedPlateSkins)
         end
         
         -- Store restored colors for use during creation
@@ -844,7 +1593,8 @@ if SERVER then
                 local plateText = vehicle.LicensePlateTexts and vehicle.LicensePlateTexts[plateId]
                 local plateType = vehicle.SelectedPlateTypes and vehicle.SelectedPlateTypes[plateId]
                 local plateFont = vehicle.SelectedPlateFonts and vehicle.SelectedPlateFonts[plateId]
-                local plateScale = vehicle.SelectedPlateScales and vehicle.SelectedPlateScales[plateId] -- NEW
+                local plateScale = vehicle.SelectedPlateScales and vehicle.SelectedPlateScales[plateId]
+                local plateSkin = vehicle.SelectedPlateSkins and vehicle.SelectedPlateSkins[plateId]
                 
                 if not plateText or not plateType then
                     continue
@@ -858,9 +1608,14 @@ if SERVER then
                 if not plateScale then
                     plateScale = GlideLicensePlates.GetPlateScale(plateType, config.scale)
                 end
+                
+                -- If no skin was restored, use hierarchy
+                if not plateSkin then
+                    plateSkin = GlideLicensePlates.GetPlateSkin(plateType, config.customSkin)
+                end
 				
 				-- Determine the text offset for this plate
-                local plateTextOffset = GlideLicensePlates.GetPlateTextOffset(plateType, config.textOffset) -- NEW
+                local plateTextOffset = GlideLicensePlates.GetPlateTextOffset(plateType, config.textOffset)
                 
                 -- Create plate entity
                 local plateEntity = ents.Create("glide_license_plate")
@@ -875,6 +1630,7 @@ if SERVER then
                 end
                 
                 plateEntity:SetModel(plateModel)
+                plateEntity:SetSkin(plateSkin)
                 plateEntity:Spawn()
                 plateEntity:Activate()
                 
@@ -895,6 +1651,7 @@ if SERVER then
                 plateEntity:SetPlateText(plateText)
                 plateEntity:SetPlateScale(plateScale) 
                 plateEntity:SetPlateFont(plateFont)
+                plateEntity:SetPlateSkin(plateSkin)
 				plateEntity:SetTextOffset(plateTextOffset)				
                 
                 -- Set the correct color IMMEDIATELY
@@ -930,8 +1687,9 @@ if SERVER then
                     
                     -- Store properties
                     plateEntity.PlateText = plateText
-                    plateEntity.PlateScale = plateScale -- MODIFIED
+                    plateEntity.PlateScale = plateScale
                     plateEntity.PlateFont = plateFont
+                    plateEntity.PlateSkin = plateSkin
                     plateEntity.ParentVehicle = vehicle
                     plateEntity.ModelRotation = config.modelRotation or Angle(0, 0, 0)
                     
@@ -957,11 +1715,11 @@ if SERVER then
         return createdCount > 0
     end
     
-    -- Enhanced save hook that ensures colors and scales are saved
+    -- Enhanced save hook that ensures colors, scales and skins are saved
     hook.Add("OnEntityCreated", "GlideLicensePlates.SaveCompleteData", function(ent)
         timer.Simple(1, function()
             if IsValid(ent) and ent.IsGlideVehicle then
-                SaveCompleteePlateData(ent)
+                SaveCompletePlateData(ent)
             end
         end)
     end)
@@ -971,7 +1729,7 @@ if SERVER then
         if IsValid(vehicle) and vehicle.IsGlideVehicle then
             timer.Simple(0.2, function()
                 if IsValid(vehicle) then
-                    SaveCompleteePlateData(vehicle)
+                    SaveCompletePlateData(vehicle)
                 end
             end)
         end
@@ -1041,7 +1799,7 @@ if SERVER then
             end
             
             if SERVER and GlideLicensePlates.CreateLicensePlates then
-                GlideLicensePlates.CreateLicensePlates(ent)
+                GlideLicensePlates.CreateLicensePlates(ent) 
             end
         end)
     end)

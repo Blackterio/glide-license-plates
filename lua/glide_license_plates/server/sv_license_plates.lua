@@ -4,7 +4,7 @@
 local function StartPlateUpdateTimer()
     if timer.Exists("GlideLicensePlates_UpdateAll") then return end
     
-    timer.Create("GlideLicensePlates_UpdateAll", 0.1, 0, function() -- 10 FPS para posiciones
+    timer.Create("GlideLicensePlates_UpdateAll", 0.1, 0, function() -- 10 FPS for positions
         if not GlideLicensePlates or not GlideLicensePlates.ActivePlates then return end
         
         for vehicle, plateEntities in pairs(GlideLicensePlates.ActivePlates) do
@@ -200,26 +200,29 @@ concommand.Add("glide_random_plate", function(ply, cmd, args)
         
         if config.customModel and config.customModel ~= "" and util.IsValidModel(config.customModel) then
             plateModel = config.customModel
-        --    print("[GLIDE License Plates] Keeping custom model: " .. plateModel)
         else
             if GlideLicensePlates.PlateTypes[selectedType] and GlideLicensePlates.PlateTypes[selectedType].model then
                 plateModel = GlideLicensePlates.PlateTypes[selectedType].model
-            --    print("[GLIDE License Plates] New model for type " .. selectedType .. ": " .. plateModel)
             else
                 plateModel = GlideLicensePlates.Config.DefaultModel
-            --    print("[GLIDE License Plates] Using default model: " .. plateModel)
             end
         end
         
         -- Update model if needed
         if plateEntity:GetModel() ~= plateModel then
-        --    print("[GLIDE License Plates] Changing model of " .. plateEntity:GetModel() .. " to " .. plateModel)
             plateEntity:UpdatePlateModel(plateModel)
-        else
-        --    print("[GLIDE License Plates] Model is already valid: " .. plateModel)
         end
         
-        ply:ChatPrint("[GLIDE License Plates] New plate generated for '" .. plateId .. "': " .. newText .. " (type: " .. selectedType .. ")")
+        -- Update skin for the new type
+        local newSkin = GlideLicensePlates.GetPlateSkin(selectedType, config.customSkin)
+        plateEntity:UpdatePlateSkin(newSkin)
+        
+        -- Store the new skin
+        if vehicle.SelectedPlateSkins then
+            vehicle.SelectedPlateSkins[plateId] = newSkin
+        end
+        
+        ply:ChatPrint("[GLIDE License Plates] New plate generated for '" .. plateId .. "': " .. newText .. " (type: " .. selectedType .. ", skin: " .. newSkin .. ")")
     else
         ply:ChatPrint("[GLIDE License Plates] Error updating the plate.")
     end
@@ -235,7 +238,7 @@ concommand.Add("glide_change_text_color", function(ply, cmd, args)
     
     if not args[1] or not args[2] or not args[3] then
         ply:ChatPrint("[GLIDE License Plates] Use: glide_change_text_color <r> <g> <b> [a] [plate_id]")
-        ply:ChatPrint("Values from 0 to 255. Alpha is optional (dafault is 255)")
+        ply:ChatPrint("Values from 0 to 255. Alpha is optional (default is 255)")
         return
     end
     
@@ -301,6 +304,68 @@ concommand.Add("glide_change_text_color", function(ply, cmd, args)
     end
 end)
 
+-- Command to change plate skin
+concommand.Add("glide_change_plate_skin", function(ply, cmd, args)
+    if not IsValid(ply) or not ply:IsAdmin() then
+        ply:ChatPrint("[GLIDE License Plates] Only admins can use this.")
+        return
+    end
+    
+    if not args[1] then
+        ply:ChatPrint("[GLIDE License Plates] Use: glide_change_plate_skin <skin_number> [plate_id]")
+        return
+    end
+    
+    local vehicle, plateId, plateEntity, error = GetVehicleAndPlateFromTrace(ply)
+    if error then
+        ply:ChatPrint("[GLIDE License Plates] " .. error)
+        return
+    end
+    
+    -- If plate ID was specified
+    if args[2] then
+        plateId = args[2]
+        plateEntity = GlideLicensePlates.GetSpecificPlate(vehicle, plateId)
+        if not IsValid(plateEntity) then
+            ply:ChatPrint("[GLIDE License Plates] Couldn't find license plate with ID: " .. plateId)
+            return
+        end
+    end
+    
+    local newSkin = math.max(0, tonumber(args[1]) or 0)
+    
+    -- Update vehicle's configuration
+    local targetConfig = nil
+    if vehicle.LicensePlateConfigs then
+        for _, config in ipairs(vehicle.LicensePlateConfigs) do
+            if config.id == plateId then
+                targetConfig = config
+                break
+            end
+        end
+    elseif vehicle.LicensePlateConfig then
+        targetConfig = vehicle.LicensePlateConfig
+    end
+    
+    if targetConfig then
+        targetConfig.customSkin = newSkin
+    end
+    
+    -- Update existing plate
+    if IsValid(plateEntity) then
+        plateEntity:UpdatePlateSkin(newSkin)
+        
+        -- Store the new skin
+        if vehicle.SelectedPlateSkins then
+            vehicle.SelectedPlateSkins[plateId] = newSkin
+        end
+        
+        ply:ChatPrint(string.format("[GLIDE License Plates] Skin of '%s' changed to: %d", plateId, newSkin))
+    else
+        ply:ChatPrint("[GLIDE License Plates] Error: Couldn't find plate's entity.")
+    end
+end)
+
 -- Command to list all plates of the vehicle
 concommand.Add("glide_list_plates", function(ply, cmd, args)
     if not IsValid(ply) or not ply:IsAdmin() then
@@ -321,14 +386,16 @@ concommand.Add("glide_list_plates", function(ply, cmd, args)
             count = count + 1
             local text = vehicle.LicensePlateTexts and vehicle.LicensePlateTexts[plateId] or "No Text"
             local plateType = vehicle.SelectedPlateTypes and vehicle.SelectedPlateTypes[plateId] or "unknown"
+            local plateSkin = vehicle.SelectedPlateSkins and vehicle.SelectedPlateSkins[plateId] or 0
             local status = IsValid(plateEntity) and "VALID" or "INVALID"
-            ply:ChatPrint(string.format("ID: %s | Text: %s | Type: %s | Status: %s", plateId, text, plateType, status))
+            ply:ChatPrint(string.format("ID: %s | Text: %s | Type: %s | Skin: %d | Status: %s", plateId, text, plateType, plateSkin, status))
         end
     elseif IsValid(vehicle.LicensePlateEntity) then
         count = 1
         local text = vehicle.LicensePlateText or "No Text"
         local plateType = vehicle.LicensePlateType or "unknown"
-        ply:ChatPrint(string.format("ID: main | Text: %s | Type: %s | Status: VALID", text, plateType))
+        local plateSkin = vehicle.LicensePlateEntity:GetPlateSkin() or 0
+        ply:ChatPrint(string.format("ID: main | Text: %s | Type: %s | Skin: %d | Status: VALID", text, plateType, plateSkin))
     end
     
     if count == 0 then
@@ -348,7 +415,7 @@ concommand.Add("glide_remove_plate", function(ply, cmd, args)
     end
     
     if not args[1] then
-        ply:ChatPrint("[GLIDE License Plates] Us: glide_remove_plate <plate_id>")
+        ply:ChatPrint("[GLIDE License Plates] Use: glide_remove_plate <plate_id>")
         return
     end
     
@@ -394,6 +461,7 @@ concommand.Add("glide_recreate_plates", function(ply, cmd, args)
         end
     end)
 end)
+
 -- Debug command to check network vars
 concommand.Add("glide_debug_plate", function(ply, cmd, args)
     if not IsValid(ply) or not ply:IsAdmin() then return end
@@ -420,10 +488,12 @@ concommand.Add("glide_debug_plate", function(ply, cmd, args)
     ply:ChatPrint("  PlateText: " .. tostring(plateEntity:GetPlateText()))
     ply:ChatPrint("  PlateScale: " .. tostring(plateEntity:GetPlateScale()))
     ply:ChatPrint("  PlateFont: " .. tostring(plateEntity:GetPlateFont()))
+    ply:ChatPrint("  PlateSkin: " .. tostring(plateEntity:GetPlateSkin()))
     ply:ChatPrint("Local Properties:")
     ply:ChatPrint("  plateEntity.PlateText: " .. tostring(plateEntity.PlateText))
     ply:ChatPrint("  plateEntity.PlateScale: " .. tostring(plateEntity.PlateScale))
     ply:ChatPrint("  plateEntity.PlateFont: " .. tostring(plateEntity.PlateFont))
+    ply:ChatPrint("  plateEntity.PlateSkin: " .. tostring(plateEntity.PlateSkin))
     ply:ChatPrint("Color:")
     local colorVec = plateEntity:GetTextColor()
     if colorVec then
