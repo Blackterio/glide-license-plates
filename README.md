@@ -57,3 +57,5 @@ ENT.LicensePlateConfigs = {
     }, -- you can put as many as you want
 }
 ```
+
+This thing is extremely slop coded (AI), feel free to improve it with your REAL talent as you wish. Proper credits will be given for every improvement.
