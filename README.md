@@ -2,7 +2,7 @@
 
 ## How to add support for license plates to your vehicle
 
-### Heres what you can put on your vehicle's LUA file to make it compatible with this system
+### Heres what you can put at the beggining of your vehicle's LUA file (before CLIENT and SERVER) to make it compatible with this system
 
 ```
 local plateCustomText = "" -- Custom text for the license plate, leave blank if you want random text based on the plate's type. IT MUST BE THE SAME FOR ALL PLATES
