@@ -4,6 +4,10 @@
 GlideLicensePlates = GlideLicensePlates or {}
 GlideLicensePlates.ActivePlates = GlideLicensePlates.ActivePlates or {}
 
+-- [Change] Initialize tables only if they don't exist to prevent overwriting external additions
+GlideLicensePlates.PlateTypes = GlideLicensePlates.PlateTypes or {}
+GlideLicensePlates.PlateGroups = GlideLicensePlates.PlateGroups or {}
+
 -- Verify if Glide is available
 if not Glide then
     if SERVER then
@@ -20,6 +24,7 @@ GlideLicensePlates.Config = {
     DefaultScale = 0.5,
     DefaultSkin = 0
 }
+
 local mercosurmodel = "models/blackterios_glide_vehicles/licenseplates/mercosurplate.mdl"
 local mercosurtextscale = 0.37
 local mercosurtextposition = Vector(0, 0, -0.55)
@@ -48,8 +53,8 @@ local gtatextposition = Vector(0.2, 0, -0.5)
 local gtatextcolor1 = {r = 18, g = 28, b = 97, a = 255}
 local gtatextcolor2 = {r = 180, g = 196, b = 54, a = 255}
 
-GlideLicensePlates.PlateTypes = { 
-
+-- [Change] Define default types in a local table and merge them to avoid wiping custom data
+local defaultPlateTypes = { 
 --LATAM
     ["argmercosur"] = {
         pattern = "AB 123 CD",
@@ -68,6 +73,7 @@ GlideLicensePlates.PlateTypes = {
         defaultFont = "coolvetica",
         defaultTextColor = {r = 255, g = 255, b = 255, a = 255},
         defaultScale = 0.33,
+		defaultTextOffset = Vector(0, 0, -0.2),		
         defaultSkin = 0,
     },
     ["argvintage"] = {
@@ -77,6 +83,7 @@ GlideLicensePlates.PlateTypes = {
         defaultFont = "Times New Roman",
         defaultTextColor = {r = 255, g = 255, b = 255, a = 255},
         defaultScale = 0.4,
+		defaultTextOffset = Vector(0, 0, 0),			
         defaultSkin = 0,
     },    
 	["brasilmercosur"] = {
@@ -584,7 +591,7 @@ GlideLicensePlates.PlateTypes = {
         defaultScale = usatextscale,  
 		defaultTextOffset = gtatextposition,
         defaultSkin = 12,
-    },		
+    },
 	-- GTA V
 	["gtavsanandreasblack"] = {
         pattern = "1ABC234",
@@ -595,7 +602,7 @@ GlideLicensePlates.PlateTypes = {
         defaultScale = usatextscale,  
 		defaultTextOffset = gtatextposition,
         defaultSkin = 13,
-    },	
+    },		
 	["gtavsanandreasblue"] = {
         pattern = "1ABC234",
         model = usasmallplate,
@@ -631,11 +638,11 @@ GlideLicensePlates.PlateTypes = {
         model = usasmallplate,
         description = "North Yankton (12ABC345)",
         defaultFont = usatextfont,
-        defaultTextColor = gtatextcolor1,
-        defaultScale = usatextscale,  
+        defaultTextColor = textcolorblack,
+        defaultScale = 0.35,   
 		defaultTextOffset = gtatextposition,
         defaultSkin = 17,
-    },		
+    },
 	--GTA IV
 	["gtaivlibertycity"] = {
         pattern = "12ABC345",
@@ -646,98 +653,127 @@ GlideLicensePlates.PlateTypes = {
         defaultScale = 0.35,  
 		defaultTextOffset = gtatextposition,
         defaultSkin = 18,
-    },		
-}
-
--- This allows developers to use a single string (e.g., "usaplates") instead of listing all IDs.
-GlideLicensePlates.PlateGroups = {
-    ["usaplates"] = {
-        "usacalifornia",
-        "usacoloradov1",
-        "usacoloradov2",
-        "usadelaware",
-        "usafloridav1",
-        "usafloridav2",
-        "usafloridav3",
-        "usafloridav4",
-        "usafloridav5",
-        "usaillinoisv1",
-        "usaillinoisv2",
-        "usanewyork",
-        "usaoklahomav1",
-        "usaoklahomav2",
-        "usatexas",
-        "usawisconsin",
-        "usawyoming"
-    },    
-	["mercosurplates"] = {
-        "argmercosur",
-        "brasilmercosur",
-        "paraguaymercosur",
-        "uruguaymercosur"
-    },	
-	["argentinaplates"] = {
-        "argmercosur",
-        "argold",
-        "argvintage"
-    },	
-	["europeplates"] = {
-        "europealbaniav1",
-        "europealbaniav2",
-        "europeaustria",
-        "europebelgium",
-        "europebulgaria",
-        "europeczech",
-        "europedenmark",
-        "europefinland",
-        "europefrance",
-        "europegermany",
-        "europegreatbritain",
-        "greatbritain",
-        "europegreece",
-        "europehungary",
-        "europeireland",
-        "europeitaly",
-        "europenetherlands",
-        "europenorway",
-        "europepoland",
-        "europeportugalv1",
-        "europeportugalv2",
-        "europeportugalv3",
-        "europeromania",
-        "russia",
-        "europespain",
-        "europeswedenv1",
-        "europeswedenv2",
     },
-	["gtasaplates"] = {
-        "gtasalasventuras",
-        "gtasalossantos",
-        "gtasasanfierro"
-    },		
-	["gtavplates"] = {
-        "gtavnorthyankton",
-        "gtavsanandreasalt",
-        "gtavsanandreasblack",
-        "gtavsanandreasblue",
-        "gtavsanandreaswhite"
-    },	
 }
 
 
+table.Merge(GlideLicensePlates.PlateTypes, defaultPlateTypes)
+
+-- PlateGroups
+local defaultPlateGroups = {
+    ["usaplates"] = 
+	{ 
+	"usacalifornia", 
+	"usacoloradov1", 
+	"usacoloradov2", 
+	"usadelaware", 
+	"usafloridav1", 
+	"usafloridav2", 
+	"usafloridav3", 
+	"usafloridav4", 
+	"usafloridav5", 
+	"usaillinoisv1", 
+	"usaillinoisv2", 
+	"usanewyork", 
+	"usaoklahomav1", 
+	"usaoklahomav2", 
+	"usatexas", 
+	"usawisconsin", 
+	"usawyoming" 
+	},
+	
+    ["mercosurplates"] = 
+	{ 
+	"argmercosur", 
+	"brasilmercosur", 
+	"paraguaymercosur",
+	"uruguaymercosur" 
+	},
+	
+    ["argentinaplates"] = 
+	{ 
+	"argmercosur", 
+	"argold", 
+	"argvintage" 
+	},
+	
+    ["europeplates"] = 
+	{ 
+	"europealbaniav1", 
+	"europealbaniav2", 
+	"europeaustria", 
+	"europebelgium", 
+	"europebulgaria", 
+	"europeczech", 
+	"europedenmark", 
+	"europefinland", 
+	"europefrance", 
+	"europegermany", 
+	"europegreatbritain", 
+	"greatbritain", 
+	"europegreece", 
+	"europehungary", 
+	"europeireland", 
+	"europeitaly", 
+	"europenetherlands",
+	"europenorway", 
+	"europepoland", 
+	"europeportugalv1", 
+	"europeportugalv2", 
+	"europeportugalv3",
+	"europeromania", 
+	"russia", 
+	"europespain", 
+	"europeswedenv1", 
+	"europeswedenv2", 
+	},
+	
+    ["gtasaplates"] = 
+	{ 
+	"gtasalasventuras", 
+	"gtasalossantos", 
+	"gtasasanfierro" 
+	},
+	
+    ["gtavplates"] = 
+	{ 
+	"gtavnorthyankton", 
+	"gtavsanandreasalt", 
+	"gtavsanandreasblack", 
+	"gtavsanandreasblue", 
+	"gtavsanandreaswhite" 
+	},	
+    ["gtavandreasplates"] = 
+	{  
+	"gtavsanandreasalt", 
+	"gtavsanandreasblack", 
+	"gtavsanandreasblue", 
+	"gtavsanandreaswhite" 
+	},
+	
+    ["gtaivplates"] = 
+	{ 
+	"gtaivlibertycity" 
+	},
+}
+
+table.Merge(GlideLicensePlates.PlateGroups, defaultPlateGroups)
+
+-- Broadcast that the system is loaded and tables are ready
+hook.Run("GlideLicensePlatesLoaded")
 
 -- Function to get the default text color
 function GlideLicensePlates.GetPlateTextColor(plateType, customTextColor)
-    -- Priority: custom color from config > plate type default color > system default (black)
+    -- Custom color from config > plate type default color > system default (black)
     if customTextColor and type(customTextColor) == "table" then
         return {
             r = customTextColor.r or 0,
-            g = customTextColor.g or 0, 
+            g = customTextColor.g or 0,
             b = customTextColor.b or 0,
             a = customTextColor.a or 255
         }
     end
-    
+
     local plateConfig = GlideLicensePlates.PlateTypes[plateType]
     if plateConfig and plateConfig.defaultTextColor then
         return {
@@ -747,62 +783,62 @@ function GlideLicensePlates.GetPlateTextColor(plateType, customTextColor)
             a = plateConfig.defaultTextColor.a or 255
         }
     end
-    
+
     return {r = 0, g = 0, b = 0, a = 255} -- Default black
 end
 
 -- Get the default scale for a plate type
 function GlideLicensePlates.GetPlateScale(plateType, customScale)
-    -- Priority: custom scale from vehicle config > plate type default scale > system default
+    -- Custom scale from vehicle config > plate type default scale > system default
     if customScale and type(customScale) == "number" and customScale > 0 then
         return customScale
     end
-    
+
     local plateConfig = GlideLicensePlates.PlateTypes[plateType]
     if plateConfig and plateConfig.defaultScale and plateConfig.defaultScale > 0 then
         return plateConfig.defaultScale
     end
-    
+
     return GlideLicensePlates.Config.DefaultScale
 end
 
 -- Get the text offset for a plate type
 function GlideLicensePlates.GetPlateTextOffset(plateType, customOffset)
-    -- Priority: custom offset from vehicle config > plate type default > system default (0,0,0)
+    -- Custom offset from vehicle config > plate type default > system default (0,0,0)
     if customOffset and type(customOffset) == "Vector" then
         return customOffset
     end
-    
+
     local plateConfig = GlideLicensePlates.PlateTypes[plateType]
     if plateConfig and plateConfig.defaultTextOffset then
         return plateConfig.defaultTextOffset
     end
-    
+
     return Vector(0, 0, 0)
 end
 
 -- Get the skin for a plate type
 function GlideLicensePlates.GetPlateSkin(plateType, customSkin)
-    -- Priority: custom skin from vehicle config > plate type default skin > system default
+    -- Custom skin from vehicle config > plate type default skin > system default
     if customSkin and type(customSkin) == "number" and customSkin >= 0 then
         return customSkin
     end
-    
+
     local plateConfig = GlideLicensePlates.PlateTypes[plateType]
     if plateConfig and plateConfig.defaultSkin and plateConfig.defaultSkin >= 0 then
         return plateConfig.defaultSkin
     end
-    
+
     return GlideLicensePlates.Config.DefaultSkin
 end
 
 -- Function to get the appropriate font for a plate type
 function GlideLicensePlates.GetPlateFont(plateType, customFont)
-    -- Priority: custom font from vehicle config > plate type custom font > plate type default font > system default
+    -- Custom font from vehicle config > plate type custom font > plate type default font > system default
     if customFont and customFont ~= "" then
         return customFont
     end
-    
+
     local plateConfig = GlideLicensePlates.PlateTypes[plateType]
     if plateConfig then
         if plateConfig.customFont and plateConfig.customFont ~= "" then
@@ -811,21 +847,15 @@ function GlideLicensePlates.GetPlateFont(plateType, customFont)
             return plateConfig.defaultFont
         end
     end
-    
+
     return GlideLicensePlates.Config.DefaultFont
 end
 
 -- Function to set custom font for a plate type
 function GlideLicensePlates.SetPlateTypeFont(plateType, fontName)
-    if not plateType or not GlideLicensePlates.PlateTypes[plateType] then
-        return false
-    end
+    if not plateType or not GlideLicensePlates.PlateTypes[plateType] then return false end
     
-    if not fontName or fontName == "" then
-        GlideLicensePlates.PlateTypes[plateType].customFont = nil
-    else
-        GlideLicensePlates.PlateTypes[plateType].customFont = fontName
-    end
+    GlideLicensePlates.PlateTypes[plateType].customFont = fontName
     return true
 end
 

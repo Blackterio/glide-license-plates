@@ -89,10 +89,16 @@ local function UpdateVehiclePlatesState(vehicle)
                 end
                 
                 plate:SetNoDraw(true)
-                plate:SetTextAlpha(0) 
+                plate:SetTextAlpha(0)
+                -- [Fix] Force RenderMode to NONE and disable shadows to prevent client override
+                plate:SetRenderMode(RENDERMODE_NONE)
+                plate:DrawShadow(false)
             else
                 -- SHOW (but modified)
                 plate:SetNoDraw(false)
+                -- [Fix] Restore RenderMode and shadows
+                plate:SetRenderMode(RENDERMODE_NORMAL)
+                plate:DrawShadow(true)
                 
                 if plate.GlideSavedAlpha then
                     plate:SetTextAlpha(plate.GlideSavedAlpha)
@@ -114,8 +120,18 @@ local function UpdateVehiclePlatesState(vehicle)
             end
         else
             -- RESTORE DEFAULTS
-            if plate:GetNoDraw() ~= originalData.IsHidden then
-                plate:SetNoDraw(originalData.IsHidden)
+            local shouldHide = originalData.IsHidden
+            
+            if plate:GetNoDraw() ~= shouldHide then
+                plate:SetNoDraw(shouldHide)
+                -- [Fix] Restore visual properties if we are unhiding
+                if not shouldHide then
+                    plate:SetRenderMode(RENDERMODE_NORMAL)
+                    plate:DrawShadow(true)
+                else
+                    plate:SetRenderMode(RENDERMODE_NONE)
+                    plate:DrawShadow(false)
+                end
             end
             
             if plate.GlideSavedAlpha then
