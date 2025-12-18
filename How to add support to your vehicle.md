@@ -6,7 +6,7 @@
 
 ```
 local plateCustomText = "" -- Custom text for the license plate, leave blank if you want random text based on the plate's type. IT MUST BE THE SAME FOR ALL PLATES
-local plateType = {"argold", "argvintage"} -- Plate type(s). See the "type.md" file in Github for more types. "anytype" (without the {}) for ALL types available. Empty or wrong type will fallback to "argmercosur" 
+local plateType = {"argold", "argvintage"} -- Plate type(s). See the "Every plate type available.md" file in Github for more types. "anytype" (without the {}) for ALL types available. Empty or wrong type will fallback to "argmercosur" 
 
 ENT.LicensePlateConfigs = {
     
