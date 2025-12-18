@@ -1,10 +1,12 @@
--- lua/autorun/sh_custom_plates_example.lua
+```
 
--- [Change] Use the custom hook to ensure the base system is fully loaded
+-- FILE PATH: lua/autorun/sh_custom_plates_example.lua
+
+-- Use the custom hook to ensure the base system is fully loaded
 hook.Add("GlideLicensePlatesLoaded", "ExampleCustomGlideLicensePlates", function()
     if not GlideLicensePlates or not GlideLicensePlates.PlateTypes then return end
 
-    -- [Optimization] Safe assignment to the global table
+    -- Safe assignment to the global table
     GlideLicensePlates.PlateTypes["examplecustomplate1"] = {
         description = "[Custom] example customplate1", 
         model = "models/blackterios_glide_vehicles/licenseplates/europeplate.mdl",
@@ -27,14 +29,17 @@ hook.Add("GlideLicensePlatesLoaded", "ExampleCustomGlideLicensePlates", function
         skin = 1
     }
 
-    -- [New] Example of adding these custom plates to a group
+    -- Example of adding these custom plates to a group
     GlideLicensePlates.PlateGroups["custom_group"] = {
         "examplecustomplate1",
         "examplecustomplate2"
     }
     
-    -- [New] Or adding to an existing group
+    -- Or adding to an existing group
     if GlideLicensePlates.PlateGroups["mercosurplates"] then
         table.insert(GlideLicensePlates.PlateGroups["mercosurplates"], "examplecustomplate1")
     end
+
 end)
+
+```
