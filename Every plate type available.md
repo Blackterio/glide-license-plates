@@ -97,6 +97,4 @@ You can assign multiple plates at once with these groups.
 * **"gtavplates"**: GTA V variations and North Yankton.
 * **"gtavandreasplates"**: GTA V variations (ONLY SAN ANDREAS).
 * **"gtaivplates"**: GTA IV plate (only one for now).
-
-
-
+  
