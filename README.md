@@ -58,4 +58,15 @@ ENT.LicensePlateConfigs = {
 }
 ```
 
+##### Console commands, mainly for debug purposes:
+
+```
+glide_change_plate <text> - Change plate text (only admin)
+glide_license_plates_enabled 0/1 - Enable/disable license plates
+glide_license_plates_distance <num> - Change render distance
+glide_change_text_color <r> <g> <b> [a] - Change text's color (only admin)
+glide_remove_plate <plate_id> - Remove plate (only admin)
+glide_recreate_plates - Recreate all license plates (only admin)
+```
+
 This thing is extremely slop coded (AI), feel free to improve it with your REAL talent as you wish. Proper credits will be given for every improvement.
