@@ -12,7 +12,7 @@
 | "uruguaymercosur" | Mercosur Uruguay | "ABC 1234" |
 
 ```
-### USA | ID | Description | Default Pattern |
+### USA 
 
 ```
 
@@ -35,7 +35,7 @@
 | "usawyoming" | Wyoming | "   123456" |
 
 ```
-### Europe | ID | Description | Default Pattern |
+### Europe 
 
 ```
 
@@ -69,7 +69,7 @@
 
 ```
 
-### GTA SA, V & IV | ID | Description | Default Pattern |
+### GTA SA, V & IV 
 
 ```
 
