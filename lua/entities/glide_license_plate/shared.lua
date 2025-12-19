@@ -131,15 +131,19 @@ function ENT:Save(table)
     table.PlateType = self.PlateType 
     table.GlideSavedAlpha = self.GlideSavedAlpha 
     table.IsHidden = self:GetNoDraw() -- Current visibility state
-    
-    -- Also save the current model
-    table.Model = self:GetModel()
+    table.ManualHide = self.ManualHide  -- Save manual hide state
+    table.Model = self:GetModel() -- Also save the current model
 end
 
 -- Function called when the entity is restored (vanilla save or dupe)
 function ENT:Restore(table)
     -- Deserialize properties and apply them
     self.IsRestored = true -- Flag the entity as being restored
+	
+-- Restore manual hide state
+    if table.ManualHide then
+        self.ManualHide = table.ManualHide
+    end
 
     if table.Model then
         self:SetModel(table.Model)

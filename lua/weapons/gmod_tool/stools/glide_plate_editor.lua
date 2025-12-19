@@ -637,18 +637,26 @@ if SERVER then
                 if vehicle.LicensePlateTexts then vehicle.LicensePlateTexts[plateId] = plateEntity:GetPlateText() end
             end
         
-        elseif key == "hidden" then
+		elseif key == "hidden" then
              local bHidden = tobool(value)
+             
+             -- Set manual hide flag to prevent other scripts from overriding
+             plateEntity.ManualHide = bHidden 
+             
              plateEntity:SetNoDraw(bHidden)
              
              -- Hide model and text completely if hidden
              if bHidden then
                 plateEntity:SetTextAlpha(0)
-                plateEntity:SetNotSolid(true) 
+                plateEntity:SetNotSolid(true)
+                -- Force render mode to ensure it stays invisible
+                plateEntity:SetRenderMode(RENDERMODE_NONE) 
              else
                 -- Restore alpha and collision if shown
                 plateEntity:SetTextAlpha(plateEntity.GlideSavedAlpha or 255)
                 plateEntity:SetNotSolid(false)
+                plateEntity:SetRenderMode(RENDERMODE_NORMAL)
+                plateEntity.ManualHide = nil -- Clear flag
              end
 
         elseif key == "type" then

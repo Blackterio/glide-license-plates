@@ -52,8 +52,18 @@ local function UpdateVehiclePlatesState(vehicle)
     local configs = vehicle.LicensePlateAdvancedConfigs
 
     -- Iterate through all plates attached to this vehicle
-    for id, plate in pairs(vehicle.LicensePlateEntities) do
+	for id, plate in pairs(vehicle.LicensePlateEntities) do
         if not IsValid(plate) then continue end
+
+        -- Helper: If manually hidden by the tool, skip advanced logic and force hide
+        if plate.ManualHide then
+            if not plate:GetNoDraw() then
+                plate:SetNoDraw(true)
+                plate:SetTextAlpha(0)
+                plate:SetRenderMode(RENDERMODE_NONE)
+            end
+            continue
+        end
 
         -- Ensure data is cached (Safe to call repeatedly, it checks internally)
         CacheOriginalData(plate)
@@ -90,13 +100,13 @@ local function UpdateVehiclePlatesState(vehicle)
                 
                 plate:SetNoDraw(true)
                 plate:SetTextAlpha(0)
-                -- [Fix] Force RenderMode to NONE and disable shadows to prevent client override
+                -- Force RenderMode to NONE and disable shadows to prevent client override
                 plate:SetRenderMode(RENDERMODE_NONE)
                 plate:DrawShadow(false)
             else
                 -- SHOW (but modified)
                 plate:SetNoDraw(false)
-                -- [Fix] Restore RenderMode and shadows
+                -- Restore RenderMode and shadows
                 plate:SetRenderMode(RENDERMODE_NORMAL)
                 plate:DrawShadow(true)
                 
@@ -124,7 +134,7 @@ local function UpdateVehiclePlatesState(vehicle)
             
             if plate:GetNoDraw() ~= shouldHide then
                 plate:SetNoDraw(shouldHide)
-                -- [Fix] Restore visual properties if we are unhiding
+                -- Restore visual properties if we are unhiding
                 if not shouldHide then
                     plate:SetRenderMode(RENDERMODE_NORMAL)
                     plate:DrawShadow(true)

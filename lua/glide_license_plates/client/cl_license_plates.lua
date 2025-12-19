@@ -95,13 +95,16 @@ local function DrawPlateTextImproved(plateEntity)
         return
     end  
 	
-	plateEntity:SetNoDraw(false)	
-	
 	-- Check distance culling before proceeding
 	if not ShouldRenderPlate(plateEntity) then 
         return 
     end
-    
+	
+ -- If server says NoDraw (Hidden), do not draw text either
+    if plateEntity:GetNoDraw() then
+        return
+    end
+	
     -- Get text from network variable directly
     local text = plateEntity:GetPlateText()
     
@@ -245,9 +248,6 @@ hook.Add("PostDrawOpaqueRenderables", "GlideLicensePlates.Render", function(bDra
                     -- No need to draw text if the model is hidden
                     continue 
                 end
-
-                -- Show the model if the option is enabled
-                ent:SetNoDraw(false)
 
                 -- Only draw the text if the distance allows it
                 if ShouldRenderPlate(ent) then
