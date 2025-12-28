@@ -9,7 +9,6 @@ TOOL.ConfigName = ""
 TOOL.Description = "#tool.glide_plate_editor.desc"
 TOOL.Info = "#tool.glide_plate_editor.desc"
 
-
 local ToolDefaults = {
     type = "mercosur plate",
     text = "",
@@ -28,6 +27,39 @@ local ToolDefaults = {
 
 -- Assign the local table to the tool's variable
 TOOL.ClientConVar = ToolDefaults
+
+-- Create ConVars explicitly before they're needed
+if CLIENT then
+    CreateClientConVar("glide_plate_editor_type", "mercosur plate", true, false)
+    CreateClientConVar("glide_plate_editor_text", "", true, false)
+    CreateClientConVar("glide_plate_editor_scale", "0.5", true, false)
+    CreateClientConVar("glide_plate_editor_skin", "0", true, false)
+    CreateClientConVar("glide_plate_editor_font", "Arial", true, false)
+    CreateClientConVar("glide_plate_editor_hidden", "0", true, false)
+    CreateClientConVar("glide_plate_editor_offset_x", "0", true, false)
+    CreateClientConVar("glide_plate_editor_offset_y", "0", true, false)
+    CreateClientConVar("glide_plate_editor_offset_z", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_r", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_g", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_b", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_a", "255", true, false)
+end
+
+TOOL.ClientConVar = {
+    type = "mercosur plate",
+    text = "",
+    scale = 0.5,
+    skin = 0,
+    font = "Arial",
+    hidden = 0,
+    offset_x = 0,
+    offset_y = 0,
+    offset_z = 0,
+    color_r = 0,
+    color_g = 0,
+    color_b = 0,
+    color_a = 255
+}
 
 local usasmallplatemodel = "models/blackterios_glide_vehicles/licenseplates/smallplate.mdl"
 local europeanlongplatemodel = "models/blackterios_glide_vehicles/licenseplates/europeplate.mdl"
@@ -507,24 +539,23 @@ if CLIENT then
 
         -- --- Basic Controls ---
         
-        -- Plate Type Selector 
-        -- Use localization key for label
-        local typeCombo = formCustom:ComboBox(language.GetPhrase("glide_pe_type"))
-        
-        local function PopulateTypes()
-            typeCombo:Clear()
-            local currentType = GetConVar("glide_plate_editor_type"):GetString()
-            for typeKey, typeData in pairs(ALLOWED_PLATES) do
-                typeCombo:AddChoice(typeData.label, typeKey, typeKey == currentType)
-            end
-        end
-        PopulateTypes() 
-        
-        -- Manual handling for ComboBox to update ConVar
-        typeCombo.OnSelect = function(self, idx, val, dataVal)
-            RunConsoleCommand("glide_plate_editor_type", dataVal)
-        end
+		-- Plate Type Selector 
+		-- Use localization key for label
+		local typeComboBox, typeLabel = formCustom:ComboBox(language.GetPhrase("glide_pe_type"))
 
+		-- Verify typeComboBox is valid before using it
+		if IsValid(typeComboBox) then
+			typeComboBox:Clear()
+			local currentType = GetConVar("glide_plate_editor_type"):GetString()
+			for typeKey, typeData in pairs(ALLOWED_PLATES) do
+				typeComboBox:AddChoice(typeData.label, typeKey, typeKey == currentType)
+			end
+			
+			-- Manual handling for ComboBox to update ConVar
+			typeComboBox.OnSelect = function(self, idx, val, dataVal)
+				RunConsoleCommand("glide_plate_editor_type", dataVal)
+			end
+		end
         -- Basic Controls: Offset (Bound to ConVars)
         -- Use localization key for labels
         local xSlide = formCustom:NumSlider(language.GetPhrase("glide_pe_text_pos_X"), "glide_plate_editor_offset_x", -5, 5, 2)
