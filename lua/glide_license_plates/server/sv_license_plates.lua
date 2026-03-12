@@ -1,14 +1,35 @@
 -- lua/glide_license_plates/server/sv_license_plates.lua
 
--- Timer to update positions 
+-- Timer to update positions (optimized - only update if vehicle moved)
 local function StartPlateUpdateTimer()
     if timer.Exists("GlideLicensePlates_UpdateAll") then return end
     
     timer.Create("GlideLicensePlates_UpdateAll", 0.1, 0, function() -- 10 FPS for positions
         if not GlideLicensePlates or not GlideLicensePlates.ActivePlates then return end
         
+        local vehiclesToUpdate = {}
+        
         for vehicle, plateEntities in pairs(GlideLicensePlates.ActivePlates) do
-            if IsValid(vehicle) and plateEntities then
+            if not IsValid(vehicle) then
+                GlideLicensePlates.ActivePlates[vehicle] = nil
+                continue
+            end
+            
+            -- Only update if vehicle moved (position changed or is moving)
+            local currentPos = vehicle:GetPos()
+            local lastPos = vehicle._LastPlateUpdatePos or Vector(0, 0, 0)
+            local velocity = vehicle:GetVelocity()
+            
+            if currentPos:Distance(lastPos) > 0.1 or velocity:Length() > 10 then
+                vehiclesToUpdate[vehicle] = true
+                vehicle._LastPlateUpdatePos = currentPos
+            end
+        end
+        
+        -- Update plates for vehicles that moved
+        for vehicle, _ in pairs(vehiclesToUpdate) do
+            local plateEntities = GlideLicensePlates.ActivePlates[vehicle]
+            if plateEntities then
                 for plateId, plateEntity in pairs(plateEntities) do
                     if IsValid(plateEntity) and plateEntity.UpdatePosition then
                         plateEntity:UpdatePosition()
@@ -22,9 +43,6 @@ local function StartPlateUpdateTimer()
                 if table.IsEmpty(plateEntities) then
                     GlideLicensePlates.ActivePlates[vehicle] = nil
                 end
-            else
-                -- Clean invalid references
-                GlideLicensePlates.ActivePlates[vehicle] = nil
             end
         end
         
@@ -89,7 +107,7 @@ concommand.Add("glide_change_plate", function(ply, cmd, args)
         return
     end
     
-    if not args[1] then
+    if not args[1] or #args[1] == 0 then
         ply:ChatPrint("[GLIDE License Plates] Use: glide_change_plate 'new text' 'plate_id'")
         return
     end
@@ -239,6 +257,15 @@ concommand.Add("glide_change_text_color", function(ply, cmd, args)
     if not args[1] or not args[2] or not args[3] then
         ply:ChatPrint("[GLIDE License Plates] Use: glide_change_text_color <r> <g> <b> [a] [plate_id]")
         ply:ChatPrint("Values from 0 to 255. Alpha is optional (default is 255)")
+        return
+    end
+    
+    local r = tonumber(args[1]) or 0
+    local g = tonumber(args[2]) or 0
+    local b = tonumber(args[3]) or 0
+    
+    if r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 then
+        ply:ChatPrint("[GLIDE License Plates] RGB values must be between 0 and 255.")
         return
     end
     

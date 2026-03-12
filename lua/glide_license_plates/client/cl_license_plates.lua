@@ -223,39 +223,65 @@ end
 CreateConVar("glide_license_plates_enabled", "1", FCVAR_ARCHIVE + FCVAR_USERINFO, "#glide_license_plates_enabled_cvar")
 CreateConVar("glide_license_plates_distance", "500", FCVAR_ARCHIVE + FCVAR_USERINFO, "#glide_license_plates_distance_cvar")
 
--- Verify if a license plate should render based on distance
+-- Cache for license plate entities (optimization)
+local plateEntityCache = {}
+local plateCacheTimer = 0
+
+-- verify if a license plate should render based on distance
 function ShouldRenderPlate(plateEntity)
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return false end
+    
     local maxDist = GetConVar("glide_license_plates_distance"):GetInt()
-    local plyPos = LocalPlayer():GetPos()
+    local plyPos = ply:GetPos()
     local platePos = plateEntity:GetPos()
     
     return plyPos:Distance(platePos) <= maxDist
 end
 
+-- Update cache periodically
+local function UpdatePlateCache()
+    plateEntityCache = {}
+    for _, ent in ipairs(ents.GetAll()) do
+        if IsValid(ent) and ent:GetClass() == "glide_license_plate" then
+            plateEntityCache[ent] = true
+        end
+    end
+end
+
+-- Update cache every 0.5 seconds
+timer.Create("GlideLicensePlates_CacheUpdate", 0.5, 0, UpdatePlateCache)
+
 -- Hook for rendering 3D2D text after opaque geometry
 hook.Add("PostDrawOpaqueRenderables", "GlideLicensePlates.Render", function(bDrawingDepth, bDrawingSkybox)
     if bDrawingDepth or bDrawingSkybox then return end
     
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return end
+    
     local platesEnabled = GetConVar("glide_license_plates_enabled"):GetBool()
+    local maxDist = GetConVar("glide_license_plates_distance"):GetInt()
+    local plyPos = ply:GetPos()
 
-    pcall(function()
-        for _, ent in ents.Iterator() do
-            if IsValid(ent) and ent:GetClass() == "glide_license_plate" then
-                
-                -- Hide the model if the option is disabled
-                if not platesEnabled then
-                    ent:SetNoDraw(true)
-                    -- No need to draw text if the model is hidden
-                    continue 
-                end
+    -- Use cached entities instead of iterating all entities
+    for ent, _ in pairs(plateEntityCache) do
+        if not IsValid(ent) then
+            plateEntityCache[ent] = nil
+        elseif ent:GetClass() == "glide_license_plate" then
+            
+            -- Hide the model if the option is disabled
+            if not platesEnabled then
+                ent:SetNoDraw(true)
+                continue 
+            end
 
-                -- Only draw the text if the distance allows it
-                if ShouldRenderPlate(ent) then
-                    DrawPlateTextImproved(ent) 
-                end
+            -- Distance check before drawing
+            local platePos = ent:GetPos()
+            if plyPos:Distance(platePos) <= maxDist then
+                DrawPlateTextImproved(ent) 
             end
         end
-    end)
+    end
 end)
 
 -- Client options configurations for Glide Config
@@ -310,9 +336,10 @@ concommand.Add("glide_plate_help", function()
     chat.AddText(Color(255, 255, 100), "glide_recreate_plates", Color(255, 255, 255), " - " .. language.GetPhrase("glide_license_plates_help_recreate_plates"))
 end)
 
--- Clear font cache when map is changed to prevent issues
+-- Clear font cache and plate cache when map is changed to prevent issues
 hook.Add("PreCleanupMap", "GlideLicensePlates.ClearCache", function()
     createdFonts = {}
+    plateEntityCache = {}
 end)
 
 print("[GLIDE License Plates] Client functions loaded")

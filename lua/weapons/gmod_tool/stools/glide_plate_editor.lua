@@ -5,45 +5,8 @@ TOOL.Name = "#tool.glide_plate_editor.name"
 TOOL.Command = nil
 TOOL.ConfigName = "" 
 
--- Using localization keys for description and info
 TOOL.Description = "#tool.glide_plate_editor.desc"
 TOOL.Info = "#tool.glide_plate_editor.desc"
-
-local ToolDefaults = {
-    type = "mercosur plate",
-    text = "",
-    scale = 0.5,
-    skin = 0,
-    font = "Arial",
-    hidden = 0,
-    offset_x = 0,
-    offset_y = 0,
-    offset_z = 0,
-    color_r = 0,
-    color_g = 0,
-    color_b = 0,
-    color_a = 255
-}
-
--- Assign the local table to the tool's variable
-TOOL.ClientConVar = ToolDefaults
-
--- Create ConVars explicitly before they're needed
-if CLIENT then
-    CreateClientConVar("glide_plate_editor_type", "mercosur plate", true, false)
-    CreateClientConVar("glide_plate_editor_text", "", true, false)
-    CreateClientConVar("glide_plate_editor_scale", "0.5", true, false)
-    CreateClientConVar("glide_plate_editor_skin", "0", true, false)
-    CreateClientConVar("glide_plate_editor_font", "Arial", true, false)
-    CreateClientConVar("glide_plate_editor_hidden", "0", true, false)
-    CreateClientConVar("glide_plate_editor_offset_x", "0", true, false)
-    CreateClientConVar("glide_plate_editor_offset_y", "0", true, false)
-    CreateClientConVar("glide_plate_editor_offset_z", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_r", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_g", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_b", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_a", "255", true, false)
-end
 
 TOOL.ClientConVar = {
     type = "mercosur plate",
@@ -60,6 +23,25 @@ TOOL.ClientConVar = {
     color_b = 0,
     color_a = 255
 }
+
+local ToolDefaults = TOOL.ClientConVar
+
+-- Create ConVars for the tool
+if CLIENT then
+    CreateClientConVar("glide_plate_editor_type", "mercosur plate", true, false)
+    CreateClientConVar("glide_plate_editor_text", "", true, false)
+    CreateClientConVar("glide_plate_editor_scale", "0.5", true, false)
+    CreateClientConVar("glide_plate_editor_skin", "0", true, false)
+    CreateClientConVar("glide_plate_editor_font", "Arial", true, false)
+    CreateClientConVar("glide_plate_editor_hidden", "0", true, false)
+    CreateClientConVar("glide_plate_editor_offset_x", "0", true, false)
+    CreateClientConVar("glide_plate_editor_offset_y", "0", true, false)
+    CreateClientConVar("glide_plate_editor_offset_z", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_r", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_g", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_b", "0", true, false)
+    CreateClientConVar("glide_plate_editor_color_a", "255", true, false)
+end
 
 local usasmallplatemodel = "models/blackterios_glide_vehicles/licenseplates/smallplate.mdl"
 local europeanlongplatemodel = "models/blackterios_glide_vehicles/licenseplates/europeplate.mdl"
@@ -96,29 +78,9 @@ local ALLOWED_PLATES = {
 if SERVER then
     util.AddNetworkString("GlidePlateEditor_Select")
     util.AddNetworkString("GlidePlateEditor_Update")
-    
-    local SELECTED_VEHICLE_NW = "GlidePlateEditor_Target"
-
-    -- Hook to clean selection if the vehicle is removed
-    hook.Add("EntityRemoved", "GlidePlateEditor_VehicleRemoved", function(ent)
-        if not ent.IsGlideVehicle then return end
-
-        for _, player in pairs(player.GetAll()) do
-            local wep = player:GetWeapon("gmod_tool")
-            if IsValid(wep) then
-                local tool = player:GetTool("glide_plate_editor") 
-                if IsValid(tool) then
-                    local selected = wep:GetNWEntity(SELECTED_VEHICLE_NW)
-                    if selected == ent then
-                        tool:RightClick(nil) -- Deselect the vehicle for the user
-                    end
-                end
-            end
-        end
-    end)
 end
 
--- Shared Variables
+-- Shared variable (declared once at top of file)
 local SELECTED_VEHICLE_NW = "GlidePlateEditor_Target"
 
 -- Called when the user Left Clicks

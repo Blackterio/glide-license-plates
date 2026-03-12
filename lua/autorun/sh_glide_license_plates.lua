@@ -879,7 +879,7 @@ function GlideLicensePlates.GeneratePlate(plateType)
     end
     
     local pattern = config.pattern
-    local result = ""
+    local chars = {}
     
     for i = 1, string.len(pattern) do
         local char = string.sub(pattern, i, i)
@@ -887,18 +887,18 @@ function GlideLicensePlates.GeneratePlate(plateType)
         -- Verify if it is a letter (A-Z)
         if string.match(char, "[A-Z]") then
             -- Generate random letter
-            result = result .. string.char(math.random(65, 90)) -- A-Z
+            table.insert(chars, string.char(math.random(65, 90)))
         -- Verify if it is a number (0-9)  
         elseif string.match(char, "[0-9]") then
             -- Generate random number
-            result = result .. tostring(math.random(0, 9))
+            table.insert(chars, tostring(math.random(0, 9)))
         else
             -- Keep special characters
-            result = result .. char
+            table.insert(chars, char)
         end
     end
     
-    return result, selectedType -- Return also the selected type
+    return table.concat(chars), selectedType
 end
 
 -- Validate vehicle's license plate configuration
