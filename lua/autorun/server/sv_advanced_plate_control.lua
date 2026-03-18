@@ -3,6 +3,9 @@
 -- Only run on server
 if not SERVER then return end
 
+-- Store previous bodygroup states for change detection
+local vehicleBodygroupCache = {}
+
 -- Helper: Check if the plate is fully initialized in the main system
 local function IsPlateReady(plate)
     if not IsValid(plate) then return false end
@@ -168,16 +171,70 @@ local function UpdateVehiclePlatesState(vehicle)
     end
 end
 
--- Hook 1: Run when a bodygroup changes
+-- Function to check for bodygroup changes (polling method as backup)
+local function CheckBodygroupChanges(vehicle)
+    if not IsValid(vehicle) or not vehicle.LicensePlateAdvancedConfigs then return end
+    if not vehicleBodygroupCache[vehicle] then
+        vehicleBodygroupCache[vehicle] = {}
+    end
+    
+    local cached = vehicleBodygroupCache[vehicle]
+    local configs = vehicle.LicensePlateAdvancedConfigs
+    local hasChanges = false
+    
+    -- Check each bodygroup referenced in configs
+    for _, config in ipairs(configs) do
+        if config.bodygroup and type(config.bodygroup) == "table" and #config.bodygroup >= 2 then
+            local bgIndex = config.bodygroup[1]
+            local currentState = vehicle:GetBodygroup(bgIndex)
+            local previousState = cached[bgIndex]
+            
+            -- If state changed (or first check)
+            if previousState == nil or currentState ~= previousState then
+                cached[bgIndex] = currentState
+                hasChanges = true
+            end
+        end
+    end
+    
+    if hasChanges then
+        UpdateVehiclePlatesState(vehicle)
+    end
+end
+
+-- Hook 1: Run when a bodygroup changes (may not work for all entities)
 hook.Add("EntityBodygroupChanged", "GlidePlates_BodygroupChanged", function(ent, index, state)
-    if IsValid(ent) and ent:IsVehicle() and ent.LicensePlateAdvancedConfigs then
+    if not IsValid(ent) then return end
+    
+    -- Check if it's a Glide vehicle with advanced configs
+    if ent.IsGlideVehicle and ent.LicensePlateAdvancedConfigs then
         timer.Simple(0.1, function() 
-            if IsValid(ent) then UpdateVehiclePlatesState(ent) end
+            if IsValid(ent) then 
+                -- Update cache immediately
+                if not vehicleBodygroupCache[ent] then
+                    vehicleBodygroupCache[ent] = {}
+                end
+                vehicleBodygroupCache[ent][index] = state
+                UpdateVehiclePlatesState(ent) 
+            end
         end)
     end
 end)
 
--- Hook 2: Smart Initialization (Retry until ready)
+-- Hook 2: Also handle SetBodygroup calls directly
+hook.Add("BodygroupModified", "GlidePlates_BodygroupModified", function(ent, index)
+    if not IsValid(ent) then return end
+    
+    if ent.IsGlideVehicle and ent.LicensePlateAdvancedConfigs then
+        timer.Simple(0.1, function()
+            if IsValid(ent) then 
+                UpdateVehiclePlatesState(ent) 
+            end
+        end)
+    end
+end)
+
+-- Hook 3: Smart Initialization (Retry until ready)
 hook.Add("OnEntityCreated", "GlidePlates_BodygroupInit", function(ent)
     if IsValid(ent) and ent:GetClass() == "glide_license_plate" then
         
@@ -207,13 +264,52 @@ hook.Add("OnEntityCreated", "GlidePlates_BodygroupInit", function(ent)
     end
 end)
 
--- Hook 3: Watchdog
-timer.Create("GlidePlates_BodygroupWatchdog", 3, 0, function()
+-- Hook 4: Initialize cache for new vehicles
+hook.Add("OnEntityCreated", "GlidePlates_VehicleInit", function(ent)
+    if ent.IsGlideVehicle and ent.LicensePlateAdvancedConfigs then
+        timer.Simple(0.5, function()
+            if IsValid(ent) then
+                -- Initialize bodygroup cache
+                vehicleBodygroupCache[ent] = {}
+                local configs = ent.LicensePlateAdvancedConfigs
+                for _, config in ipairs(configs) do
+                    if config.bodygroup and type(config.bodygroup) == "table" and #config.bodygroup >= 2 then
+                        local bgIndex = config.bodygroup[1]
+                        vehicleBodygroupCache[ent][bgIndex] = ent:GetBodygroup(bgIndex)
+                    end
+                end
+                -- Apply initial state
+                UpdateVehiclePlatesState(ent)
+            end
+        end)
+    end
+end)
+
+-- Polling timer as fallback (checks every 2 seconds for any missed changes)
+timer.Create("GlidePlates_BodygroupPolling", 3, 0, function()
+    if GlideLicensePlates and GlideLicensePlates.ActivePlates then
+        for vehicle, _ in pairs(GlideLicensePlates.ActivePlates) do
+            if IsValid(vehicle) and vehicle.LicensePlateAdvancedConfigs then
+                CheckBodygroupChanges(vehicle)
+            end
+        end
+    end
+end)
+
+-- Watchdog timer (runs every 5 seconds to ensure consistency)
+timer.Create("GlidePlates_BodygroupWatchdog", 5, 0, function()
     if GlideLicensePlates and GlideLicensePlates.ActivePlates then
         for vehicle, _ in pairs(GlideLicensePlates.ActivePlates) do
             if IsValid(vehicle) and vehicle.LicensePlateAdvancedConfigs then
                 UpdateVehiclePlatesState(vehicle)
             end
         end
+    end
+end)
+
+-- Cleanup cache when vehicle is removed
+hook.Add("EntityRemoved", "GlidePlates_Cleanup", function(ent)
+    if vehicleBodygroupCache[ent] then
+        vehicleBodygroupCache[ent] = nil
     end
 end)
