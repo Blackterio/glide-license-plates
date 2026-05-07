@@ -36,14 +36,16 @@ function ENT:SetupDataTables()
     if CLIENT then
         self:NetworkVarNotify("PlateText", function(ent, name, old, new)
             ent.PlateText = new
+            ent._cachedTextSize = nil
         end)
-        
+
         self:NetworkVarNotify("PlateScale", function(ent, name, old, new)
             ent.PlateScale = new
         end)
-        
+
         self:NetworkVarNotify("PlateFont", function(ent, name, old, new)
             ent.PlateFont = new
+            ent._cachedTextSize = nil
         end)
 		
         self:NetworkVarNotify("PlateSkin", function(ent, name, old, new) 
@@ -313,69 +315,21 @@ if CLIENT then
     end
     
     function ENT:Think()
-        -- Update local properties from network variables
-        local hasAllData = true
-        
-        local netText = self:GetPlateText()
-        if netText and netText ~= "" then
-            self.PlateText = netText
-        else
-            hasAllData = false
-        end
-        
-        local netScale = self:GetPlateScale()
-        if netScale and netScale > 0 then
-            self.PlateScale = netScale
-        else
-            hasAllData = false
-        end
-        
-        local netFont = self:GetPlateFont()
-        if netFont and netFont ~= "" then
-            self.PlateFont = netFont
-        else
-            hasAllData = false
-        end
-        
-        local netModelRot = self:GetModelRotation()
-        if netModelRot then
-            self.ModelRotation = netModelRot
-        end
-        
-        -- Check if color data is available
-        local colorVec = self:GetTextColor()
-        if colorVec then
-            local alpha = self:GetTextAlpha()
-            self.CachedTextColor = Color(
-                math.Clamp(math.Round(colorVec.x), 0, 255),
-                math.Clamp(math.Round(colorVec.y), 0, 255),
-                math.Clamp(math.Round(colorVec.z), 0, 255),
-                alpha or 255
-            )
-        else
-            hasAllData = false
-        end
-        
+        -- NetworkVarNotify handles Text/Scale/Font/Color updates.
+        -- Here we only update position and manage ReadyForRender.
         if IsValid(self:GetParentVehicle()) then
             self.ParentVehicle = self:GetParentVehicle()
-            -- Update position continuously
             self:UpdatePosition()
-        else
-            hasAllData = false
-        end
-        
-        -- Mark as ready when all data is available
-        if hasAllData then
-            self.ReadyForRender = true
-            self.InitAttempts = 0
+            if not self.ReadyForRender and self.PlateText ~= "" and self.CachedTextColor then
+                self.ReadyForRender = true
+                self.InitAttempts = 0
+            end
         else
             self.InitAttempts = (self.InitAttempts or 0) + 1
-            -- Force ready after 50 attempts (5 seconds) to prevent permanent invisibility
             if self.InitAttempts > 50 then
                 self.ReadyForRender = true
             end
         end
-        
         return true
     end
 end
@@ -386,23 +340,20 @@ if SERVER then
     end
     
     function ENT:OnRemove()
-        -- Remove the reference from the parent vehicle when the plate is removed
         if IsValid(self.ParentVehicle) then
-            self.ParentVehicle.LicensePlateEntity = nil
-            
+            local vehicle = self.ParentVehicle
+            vehicle.LicensePlateEntity = nil
+
             if GlideLicensePlates and GlideLicensePlates.ActivePlates then
-                GlideLicensePlates.ActivePlates[self.ParentVehicle] = nil
+                local vehiclePlates = GlideLicensePlates.ActivePlates[vehicle]
+                if vehiclePlates and self.PlateId then
+                    vehiclePlates[self.PlateId] = nil
+                end
+                if not vehiclePlates or not next(vehiclePlates) then
+                    GlideLicensePlates.ActivePlates[vehicle] = nil
+                end
             end
         end
-    end
-    
-    function ENT:Think()
-        -- Update position in the server (for physics/network sync)
-        if IsValid(self:GetParentVehicle()) then
-            self:UpdatePosition()
-        end
-        
-        return true
     end
     
     -- Set base position and angles (relative to vehicle)

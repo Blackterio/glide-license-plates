@@ -21,13 +21,8 @@ local function IsPlateReady(plate)
     -- Check if the main addon has registered this plate in the vehicle's table
     if not vehicle.LicensePlateEntities then return false end
     
-    -- Verify this specific plate is in the table
-    local found = false
-    for k, v in pairs(vehicle.LicensePlateEntities) do
-        if v == plate then found = true break end
-    end
-    
-    return found 
+    -- O(1) lookup using PlateId as key
+    return vehicle.LicensePlateEntities[plate.PlateId] == plate
 end
 
 -- Function to save original structural data (positions) if not present.
@@ -285,24 +280,13 @@ hook.Add("OnEntityCreated", "GlidePlates_VehicleInit", function(ent)
     end
 end)
 
--- Polling timer as fallback (checks every 2 seconds for any missed changes)
+-- Consolidated timer: change detection + consistency check every 3s
 timer.Create("GlidePlates_BodygroupPolling", 3, 0, function()
-    if GlideLicensePlates and GlideLicensePlates.ActivePlates then
-        for vehicle, _ in pairs(GlideLicensePlates.ActivePlates) do
-            if IsValid(vehicle) and vehicle.LicensePlateAdvancedConfigs then
-                CheckBodygroupChanges(vehicle)
-            end
-        end
-    end
-end)
-
--- Watchdog timer (runs every 5 seconds to ensure consistency)
-timer.Create("GlidePlates_BodygroupWatchdog", 5, 0, function()
-    if GlideLicensePlates and GlideLicensePlates.ActivePlates then
-        for vehicle, _ in pairs(GlideLicensePlates.ActivePlates) do
-            if IsValid(vehicle) and vehicle.LicensePlateAdvancedConfigs then
-                UpdateVehiclePlatesState(vehicle)
-            end
+    if not GlideLicensePlates or not GlideLicensePlates.ActivePlates then return end
+    for vehicle, _ in pairs(GlideLicensePlates.ActivePlates) do
+        if IsValid(vehicle) and vehicle.LicensePlateAdvancedConfigs then
+            CheckBodygroupChanges(vehicle)    -- detects changes, updates on change
+            UpdateVehiclePlatesState(vehicle) -- consistency check (watchdog)
         end
     end
 end)

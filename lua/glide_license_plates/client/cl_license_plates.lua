@@ -2,22 +2,31 @@
 
 local defaultTextColor = Color(0, 0, 0, 255)
 
+-- OPT-17: Declared at top so all functions below can close over them.
+-- Assigned after CreateConVar calls further down the file.
+local cvEnabled, cvDistance
+
 -- To create dynamic fonts based on scale
 local createdFonts = {}
+local safeNameCache = {}  -- Cache gsub results per fontName
 
 -- Function to create a font scaled based on the input scale factor.
 local function CreateScaledFont(fontName, baseSize, scale)
-    if not fontName or fontName == "" then 
+    if not fontName or fontName == "" then
         fontName = "Arial"
     end
-    if not scale or scale <= 0 then 
-        scale = 0.5 
+    if not scale or scale <= 0 then
+        scale = 0.5
     end
-    
-    -- Calculate scaled size, ensuring a minimum size of 16
+
     local scaledSize = math.max(16, math.floor(baseSize * math.max(scale, 0.3)))
-    local fontId = "GlideLicensePlate_" .. fontName:gsub("[^%w]", "_") .. "_" .. tostring(scaledSize)
-    
+    local safeName = safeNameCache[fontName]
+    if not safeName then
+        safeName = fontName:gsub("[^%w]", "_")
+        safeNameCache[fontName] = safeName
+    end
+    local fontId = "GlideLicensePlate_" .. safeName .. "_" .. scaledSize
+
     -- Check if the font is already created
     if createdFonts[fontId] then
         return fontId
@@ -88,8 +97,8 @@ local function DrawPlateTextImproved(plateEntity)
 	if not IsValid(plateEntity) then return end
     
     -- Get the main CVar status
-    local isEnabled = GetConVar("glide_license_plates_enabled"):GetBool()  
-	
+    local isEnabled = cvEnabled:GetBool()
+
 	if not isEnabled then
         plateEntity:SetNoDraw(true)
         return
@@ -165,24 +174,41 @@ local function DrawPlateTextImproved(plateEntity)
     local worldPos = parentVehicle:LocalToWorld(basePos)
     local textAngles = parentVehicle:LocalToWorldAngles(baseAng)
     
-    -- Calculate lighting factor for dynamic color adjustment
-    local lightFactor = CalculateAmbientLighting(worldPos, textAngles:Forward())
-    
+    -- OPT-08: Cache lighting computation (max once every 0.2s per plate)
+    local curTime = CurTime()
+    if not plateEntity._lastLightTime or curTime - plateEntity._lastLightTime > 0.2 then
+        plateEntity._cachedLightFactor = CalculateAmbientLighting(worldPos, textAngles:Forward())
+        plateEntity._lastLightTime = curTime
+    end
+    local lightFactor = plateEntity._cachedLightFactor
+
     -- Apply lighting to the text color
     local litTextColor = Color(
         math.Clamp(baseTextColor.r * lightFactor, 0, 255),
         math.Clamp(baseTextColor.g * lightFactor, 0, 255),
         math.Clamp(baseTextColor.b * lightFactor, 0, 255),
-        baseTextColor.a -- Keep alpha unchanged
+        baseTextColor.a
     )
-    
-    -- Get text size for 3D2D scaling/centering
-    surface.SetFont(fontId)
-    local textWidth, textHeight = surface.GetTextSize(text)
+
+    -- OPT-06: Cache GetTextSize per plate (invalidated by NetworkVarNotify on text/font change)
+    if not plateEntity._cachedTextSize or plateEntity._cachedTextSizeFont ~= fontId or plateEntity._cachedTextSizeText ~= text then
+        surface.SetFont(fontId)
+        local w, h = surface.GetTextSize(text)
+        plateEntity._cachedTextSize = {w, h}
+        plateEntity._cachedTextSizeFont = fontId
+        plateEntity._cachedTextSizeText = text
+    end
+    local textWidth, textHeight = plateEntity._cachedTextSize[1], plateEntity._cachedTextSize[2]
     if textWidth == 0 or textHeight == 0 then return end
-    
-    -- Get model bounds for offsetting text slightly forward
-    local mins, maxs = plateEntity:GetModelBounds()
+
+    -- OPT-07: Cache GetModelBounds per plate (invalidated when model changes)
+    local currentModel = plateEntity:GetModel()
+    if not plateEntity._cachedModelBounds or plateEntity._cachedModelBoundsModel ~= currentModel then
+        local mins, maxs = plateEntity:GetModelBounds()
+        plateEntity._cachedModelBounds = {mins, maxs}
+        plateEntity._cachedModelBoundsModel = currentModel
+    end
+    local mins, maxs = plateEntity._cachedModelBounds[1], plateEntity._cachedModelBounds[2]
     local forward = textAngles:Forward()
 	local right = textAngles:Right() 
     local up = textAngles:Up()   
@@ -209,19 +235,19 @@ local function DrawPlateTextImproved(plateEntity)
     if renderScale <= 0 then return end
     
     -- Start 3D2D rendering
-    local success = pcall(function()
-        cam.Start3D2D(offsetPos, renderAng, renderScale)
-            -- Slight Shadow
-            draw.SimpleText(text, fontId, 0, 0, Color(0, 0, 0, litTextColor.a * 0.3), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-            -- Main text
-            draw.SimpleText(text, fontId, 0, 0, litTextColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-        cam.End3D2D()
-    end)
+    cam.Start3D2D(offsetPos, renderAng, renderScale)
+        draw.SimpleText(text, fontId, 0, 0, Color(0, 0, 0, litTextColor.a * 0.3), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(text, fontId, 0, 0, litTextColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    cam.End3D2D()
 end
 
 -- Client variables - Using localization keys (prefixed with #)
 CreateConVar("glide_license_plates_enabled", "1", FCVAR_ARCHIVE + FCVAR_USERINFO, "#glide_license_plates_enabled_cvar")
 CreateConVar("glide_license_plates_distance", "500", FCVAR_ARCHIVE + FCVAR_USERINFO, "#glide_license_plates_distance_cvar")
+
+-- OPT-17: Assign the ConVar objects now that they exist
+cvEnabled = GetConVar("glide_license_plates_enabled")
+cvDistance = GetConVar("glide_license_plates_distance")
 
 -- Cache for license plate entities (optimization)
 local plateEntityCache = {}
@@ -231,12 +257,12 @@ local plateCacheTimer = 0
 function ShouldRenderPlate(plateEntity)
     local ply = LocalPlayer()
     if not IsValid(ply) then return false end
-    
-    local maxDist = GetConVar("glide_license_plates_distance"):GetInt()
+
+    local maxDist = cvDistance:GetInt()
     local plyPos = ply:GetPos()
     local platePos = plateEntity:GetPos()
-    
-    return plyPos:Distance(platePos) <= maxDist
+
+    return plyPos:DistToSqr(platePos) <= (maxDist * maxDist)
 end
 
 -- Update cache periodically
@@ -259,8 +285,9 @@ hook.Add("PostDrawOpaqueRenderables", "GlideLicensePlates.Render", function(bDra
     local ply = LocalPlayer()
     if not IsValid(ply) then return end
     
-    local platesEnabled = GetConVar("glide_license_plates_enabled"):GetBool()
-    local maxDist = GetConVar("glide_license_plates_distance"):GetInt()
+    local platesEnabled = cvEnabled:GetBool()
+    local maxDist = cvDistance:GetInt()
+    local maxDistSqr = maxDist * maxDist
     local plyPos = ply:GetPos()
 
     -- Use cached entities instead of iterating all entities
@@ -268,17 +295,17 @@ hook.Add("PostDrawOpaqueRenderables", "GlideLicensePlates.Render", function(bDra
         if not IsValid(ent) then
             plateEntityCache[ent] = nil
         elseif ent:GetClass() == "glide_license_plate" then
-            
+
             -- Hide the model if the option is disabled
             if not platesEnabled then
                 ent:SetNoDraw(true)
-                continue 
+                continue
             end
 
             -- Distance check before drawing
             local platePos = ent:GetPos()
-            if plyPos:Distance(platePos) <= maxDist then
-                DrawPlateTextImproved(ent) 
+            if plyPos:DistToSqr(platePos) <= maxDistSqr then
+                DrawPlateTextImproved(ent)
             end
         end
     end
@@ -339,6 +366,7 @@ end)
 -- Clear font cache and plate cache when map is changed to prevent issues
 hook.Add("PreCleanupMap", "GlideLicensePlates.ClearCache", function()
     createdFonts = {}
+    safeNameCache = {}
     plateEntityCache = {}
 end)
 

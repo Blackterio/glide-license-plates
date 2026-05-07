@@ -20,7 +20,7 @@ local function StartPlateUpdateTimer()
             local lastPos = vehicle._LastPlateUpdatePos or Vector(0, 0, 0)
             local velocity = vehicle:GetVelocity()
             
-            if currentPos:Distance(lastPos) > 0.1 or velocity:Length() > 10 then
+            if currentPos:DistToSqr(lastPos) > 0.01 or velocity:LengthSqr() > 100 then
                 vehiclesToUpdate[vehicle] = true
                 vehicle._LastPlateUpdatePos = currentPos
             end
@@ -40,25 +40,23 @@ local function StartPlateUpdateTimer()
                 end
                 
                 -- If there's not valid plates, clean vehicle
-                if table.IsEmpty(plateEntities) then
+                if not next(plateEntities) then
                     GlideLicensePlates.ActivePlates[vehicle] = nil
                 end
             end
         end
         
         -- If there's not active plates, stop timer
-        if table.IsEmpty(GlideLicensePlates.ActivePlates) then
+        if not next(GlideLicensePlates.ActivePlates) then
             timer.Remove("GlideLicensePlates_UpdateAll")
         end
     end)
 end
 
--- Start timer when needed
-hook.Add("Think", "GlideLicensePlates.CheckForTimer", function()
-    if GlideLicensePlates and GlideLicensePlates.ActivePlates then
-        if not table.IsEmpty(GlideLicensePlates.ActivePlates) then
-            StartPlateUpdateTimer()
-        end
+-- Start timer when a new plate entity is created (replaces per-tick Think hook)
+hook.Add("OnEntityCreated", "GlideLicensePlates.StartTimer", function(ent)
+    if IsValid(ent) and ent:GetClass() == "glide_license_plate" then
+        StartPlateUpdateTimer()
     end
 end)
 

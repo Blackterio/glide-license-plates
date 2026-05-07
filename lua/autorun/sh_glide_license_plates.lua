@@ -910,25 +910,6 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
     
     -- Validate each license plate configuration
     for i, config in ipairs(vehicle.LicensePlateConfigs) do
-        if config.textColor then
-            if type(config.textColor) ~= "table" then
-                config.textColor = nil
-                print("[GLIDE License Plates] Invalid textColor config, will use plate type default")
-            else
-                -- Validate color values
-                if not config.textColor.r then config.textColor.r = 0 end
-                if not config.textColor.g then config.textColor.g = 0 end  
-                if not config.textColor.b then config.textColor.b = 0 end
-                if not config.textColor.a then config.textColor.a = 255 end
-                
-                -- Clamp values to valid range
-                config.textColor.r = math.Clamp(config.textColor.r, 0, 255)
-                config.textColor.g = math.Clamp(config.textColor.g, 0, 255)
-                config.textColor.b = math.Clamp(config.textColor.b, 0, 255)
-                config.textColor.a = math.Clamp(config.textColor.a, 0, 255)
-            end
-        end
-		
         if type(config.plateType) == "string" and string.lower(config.plateType) == "anytype" then
             local allTypes = {}
             for typeId, _ in pairs(GlideLicensePlates.PlateTypes) do
@@ -983,35 +964,6 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
             config.plateType = "argmercosur"
         end
 		
-        -- Validate plate type (can be string or table)
-        if not config.plateType then
-            config.plateType = "argmercosur"
-        elseif type(config.plateType) == "table" then
-            -- If it's a table, verify that at least has a valid element
-            local validTypes = {}
-            for _, pType in ipairs(config.plateType) do
-                if type(pType) == "string" and GlideLicensePlates.PlateTypes[pType] then
-                    table.insert(validTypes, pType)
-                end
-            end
-            
-            if #validTypes == 0 then
-                print("[GLIDE License Plates] WARNING: Couldn't find valid types in configuration, using argmercosur (default)")
-                config.plateType = "argmercosur"
-            else
-                config.plateType = validTypes
-            end
-        elseif type(config.plateType) == "string" then
-            -- If it is a string, verify that exists
-            if not GlideLicensePlates.PlateTypes[config.plateType] then
-                print("[GLIDE License Plates] WARNING: Type '" .. config.plateType .. "' not found, using argmercosur (default)")
-                config.plateType = "argmercosur"
-            end
-        else
-            -- If invalid type
-            config.plateType = "argmercosur"
-        end
-        
         if not config.position or type(config.position) ~= "Vector" then
             config.position = Vector(0, 0, 0)
         end
@@ -1058,28 +1010,29 @@ function GlideLicensePlates.ValidateVehicleConfig(vehicle)
         if config.font then
             if type(config.font) ~= "string" or config.font == "" then
                 config.font = nil
-            else
-                print("[GLIDE License Plates] Validated font parameter: " .. config.font)
             end
         end
-        
+
         -- Also validate customFont parameter
         if config.customFont then
             if type(config.customFont) ~= "string" or config.customFont == "" then
                 config.customFont = nil
-            else
-                print("[GLIDE License Plates] Validated customFont parameter: " .. config.customFont)
             end
         end 
         
         if config.textColor then
             if type(config.textColor) ~= "table" then
                 config.textColor = nil
+                print("[GLIDE License Plates] Invalid textColor config, will use plate type default")
             else
                 if not config.textColor.r then config.textColor.r = 0 end
                 if not config.textColor.g then config.textColor.g = 0 end
                 if not config.textColor.b then config.textColor.b = 0 end
                 if not config.textColor.a then config.textColor.a = 255 end
+                config.textColor.r = math.Clamp(config.textColor.r, 0, 255)
+                config.textColor.g = math.Clamp(config.textColor.g, 0, 255)
+                config.textColor.b = math.Clamp(config.textColor.b, 0, 255)
+                config.textColor.a = math.Clamp(config.textColor.a, 0, 255)
             end
         end
         
