@@ -1056,6 +1056,7 @@ if SERVER then
 	function GlideLicensePlates.CreateLicensePlates(vehicle)
 		if not IsValid(vehicle) then return false end
 		if not GlideLicensePlates.ValidateVehicleConfig(vehicle) then return false end
+		if #vehicle.LicensePlateConfigs == 0 then return false end
 		
 		-- Check if we're in duplication restore mode
 		if vehicle._RestoreFromDupe then
@@ -1089,7 +1090,13 @@ if SERVER then
         if not vehicle.SelectedPlateSkins then
             vehicle.SelectedPlateSkins = {}
         end
-        
+
+        -- Track which plates have manually-set (non-random) text.
+        -- Manually-set text survives type changes; random text does not.
+        if not vehicle.PlateHasCustomText then
+            vehicle.PlateHasCustomText = {}
+        end
+
         local globalPlateText = nil
         local globalPlateType = nil
         local needsGlobalText = true
@@ -1161,6 +1168,7 @@ if SERVER then
                 if config.customText and config.customText ~= "" then
                     -- Use custom text
                     plateText = config.customText
+                    vehicle.PlateHasCustomText[plateId] = true
                     -- For custom text, we still need to set model's type
                     if type(config.plateType) == "table" then
                         plateType = config.plateType[math.random(1, #config.plateType)]
@@ -1254,14 +1262,9 @@ if SERVER then
             plateEntity:Spawn()
             plateEntity:Activate()
             
-            -- Configure physical properties 
-            plateEntity:SetMoveType(MOVETYPE_NONE)
-            plateEntity:SetSolid(SOLID_NONE)
-            plateEntity:SetCollisionGroup(COLLISION_GROUP_WORLD)
-            plateEntity.DoNotDuplicate = true
-            plateEntity.PhysgunDisabled = false
+            -- Movement/solidity/physics are configured in ENT:Initialize
             plateEntity.PlateId = plateId
-            plateEntity.PlateType = plateType 
+            plateEntity.PlateType = plateType
             
             -- Configure properties after spawn 
             -- Store properties locally FIRST
@@ -1390,43 +1393,37 @@ elseif CLIENT then
     include("glide_license_plates/client/cl_license_plates.lua")
 end
 
--- Hook - For when a vehicle is created
-hook.Add("OnEntityCreated", "GlideLicensePlates.OnVehicleCreated", function(ent)
-    if not IsValid(ent) then return end
-    
-    timer.Simple(0.1, function()
-        if not IsValid(ent) then return end
+-- Server-side lifecycle hooks. (The plate CREATION hook is registered further
+-- down, in the duplicator section, so it can skip vehicles being restored.)
+if SERVER then
+    -- Hook - Clean plates when a vehicle is removed
+    hook.Add("EntityRemoved", "GlideLicensePlates.OnVehicleRemoved", function(ent)
         if not ent.IsGlideVehicle then return end
-        
-        if SERVER and GlideLicensePlates.CreateLicensePlates then
-            GlideLicensePlates.CreateLicensePlates(ent)
+
+        if GlideLicensePlates.RemoveLicensePlates then
+            GlideLicensePlates.RemoveLicensePlates(ent)
         end
     end)
-end)
 
--- Hook - Clean plates when a vehicle is removed
-hook.Add("EntityRemoved", "GlideLicensePlates.OnVehicleRemoved", function(ent)
-    if not IsValid(ent) then return end
-    if not ent.IsGlideVehicle then return end
-    
-    if SERVER and GlideLicensePlates.RemoveLicensePlates then
-        GlideLicensePlates.RemoveLicensePlates(ent)
-    end
-end)
-
--- Cleanup when map is changed
-hook.Add("PreCleanupMap", "GlideLicensePlates.MapCleanup", function()
-    if SERVER then
+    -- Cleanup when map is changed
+    hook.Add("PreCleanupMap", "GlideLicensePlates.MapCleanup", function()
         GlideLicensePlates.ActivePlates = {}
-    end
-end)
+    end)
+end
 
 -- Duplicator support
 if SERVER then
     -- Duplication control variables
-    local duplicatingEntities = {}
-    local pendingRestores = {}
     local restoringVehicles = {}
+
+    -- Cheap synchronous filter: true for anything that is (or could be) a Glide
+    -- vehicle. Lets OnEntityCreated hooks skip bullets/props/etc. without
+    -- creating a timer for every single entity on the server.
+    local function IsGlideVehicleClass(ent)
+        if ent.IsGlideVehicle then return true end
+        local class = ent:GetClass()
+        return class == "base_glide" or scripted_ents.IsBasedOn(class, "base_glide")
+    end
     
     -- Enhanced plate data storage that includes colors, scales and skins
     local function SaveCompletePlateData(vehicle)
@@ -1441,9 +1438,6 @@ if SERVER then
         -- Save plate texts
         if vehicle.LicensePlateTexts and not table.IsEmpty(vehicle.LicensePlateTexts) then
             plateData.plateTexts = table.Copy(vehicle.LicensePlateTexts)
-            hasData = true
-        elseif vehicle.LicensePlateText and vehicle.LicensePlateText ~= "" then
-            plateData.plateText = vehicle.LicensePlateText
             hasData = true
         end
         
@@ -1468,6 +1462,12 @@ if SERVER then
         -- Save selected skins
         if vehicle.SelectedPlateSkins and not table.IsEmpty(vehicle.SelectedPlateSkins) then
             plateData.selectedPlateSkins = table.Copy(vehicle.SelectedPlateSkins)
+            hasData = true
+        end
+
+        -- Save custom-text flags
+        if vehicle.PlateHasCustomText and not table.IsEmpty(vehicle.PlateHasCustomText) then
+            plateData.plateHasCustomText = table.Copy(vehicle.PlateHasCustomText)
             hasData = true
         end
         
@@ -1495,17 +1495,7 @@ if SERVER then
         
         -- Save configurations (for reference)
         if vehicle.LicensePlateConfigs then
-            -- Ensure we save textOffset from the original configuration
             plateData.plateConfigs = table.Copy(vehicle.LicensePlateConfigs)
-            -- We only copy the data, we need to check if the data exists
-            for i, config in ipairs(plateData.plateConfigs) do
-                if config.textOffset and type(config.textOffset) == "Vector" then
-                    hasData = true -- Mark as having data if textOffset is present
-                end
-            end
-            hasData = true
-        elseif vehicle.LicensePlateConfig then
-            plateData.plateConfig = table.Copy(vehicle.LicensePlateConfig)
             hasData = true
         end
         
@@ -1534,10 +1524,6 @@ if SERVER then
             vehicle.LicensePlateTexts = table.Copy(plateData.plateTexts)
         end
         
-        if plateData.plateText then
-            vehicle.LicensePlateText = plateData.plateText
-        end
-        
         if plateData.selectedPlateTypes then
             vehicle.SelectedPlateTypes = table.Copy(plateData.selectedPlateTypes)
         end
@@ -1554,6 +1540,11 @@ if SERVER then
         -- Restore selected skins
         if plateData.selectedPlateSkins then
             vehicle.SelectedPlateSkins = table.Copy(plateData.selectedPlateSkins)
+        end
+
+        -- Restore custom-text flags
+        if plateData.plateHasCustomText then
+            vehicle.PlateHasCustomText = table.Copy(plateData.plateHasCustomText)
         end
         
         -- Store restored colors for use during creation
@@ -1617,12 +1608,7 @@ if SERVER then
                 plateEntity:Spawn()
                 plateEntity:Activate()
                 
-                -- Basic entity setup
-                plateEntity:SetMoveType(MOVETYPE_NONE)
-                plateEntity:SetSolid(SOLID_NONE)
-                plateEntity:SetCollisionGroup(COLLISION_GROUP_WORLD)
-                plateEntity.DoNotDuplicate = true
-                plateEntity.PhysgunDisabled = false
+                -- Movement/solidity/physics are configured in ENT:Initialize
                 plateEntity.PlateId = plateId
                 plateEntity.PlateType = plateType
                 
@@ -1677,8 +1663,9 @@ if SERVER then
                     plateEntity.ModelRotation = config.modelRotation or Angle(0, 0, 0)
                     
                     plateEntity:UpdatePosition()
+                    plateEntity.GlideInitialized = true
                 end)
-                
+
                 createdCount = createdCount + 1
             end
         end
@@ -1700,41 +1687,28 @@ if SERVER then
     
     -- Enhanced save hook that ensures colors, scales and skins are saved
     hook.Add("OnEntityCreated", "GlideLicensePlates.SaveCompleteData", function(ent)
+        if not IsGlideVehicleClass(ent) then return end
+
         timer.Simple(1, function()
             if IsValid(ent) and ent.IsGlideVehicle then
                 SaveCompletePlateData(ent)
             end
         end)
     end)
-    
-    -- Hook to save data when plates are modified
-    local function SaveDataOnPlateChange(vehicle)
-        if IsValid(vehicle) and vehicle.IsGlideVehicle then
-            timer.Simple(0.2, function()
-                if IsValid(vehicle) then
-                    SaveCompletePlateData(vehicle)
-                end
-            end)
-        end
-    end
-    
-    -- Save data when plate text is changed
-    local originalUpdatePlateText = nil
-    if glide_license_plate then
-        local meta = FindMetaTable("Entity")
-        originalUpdatePlateText = meta.UpdatePlateText
-        
-        meta.UpdatePlateText = function(self, newText)
-            if originalUpdatePlateText then
-                originalUpdatePlateText(self, newText)
+
+    -- Public, debounced save: call after any runtime plate change (tool edits,
+    -- concommands...) so the duplicator/save data stays up to date.
+    function GlideLicensePlates.SavePlateData(vehicle)
+        if not IsValid(vehicle) or not vehicle.IsGlideVehicle then return end
+
+        timer.Create("GlideLicensePlates_Save_" .. vehicle:EntIndex(), 0.2, 1, function()
+            if IsValid(vehicle) then
+                SaveCompletePlateData(vehicle)
             end
-            
-            if self.ParentVehicle then
-                SaveDataOnPlateChange(self.ParentVehicle)
-            end
-        end
+        end)
     end
-    
+
+
     -- Register the duplicator restore function
     duplicator.RegisterEntityModifier("glide_license_plate_data", function(ply, ent, data)
         if not IsValid(ent) or not ent.IsGlideVehicle then 
@@ -1767,44 +1741,30 @@ if SERVER then
         end)
     end)
     
-    -- Prevent automatic creation during restoration
-    hook.Remove("OnEntityCreated", "GlideLicensePlates.OnVehicleCreated")
+    -- Automatic plate creation for new Glide vehicles (skips dupe restores)
     hook.Add("OnEntityCreated", "GlideLicensePlates.OnVehicleCreated", function(ent)
-        if not IsValid(ent) then return end
-        
+        -- Cheap synchronous early-out: skip every non-Glide entity
+        if not IsGlideVehicleClass(ent) then return end
+
         timer.Simple(0.1, function()
             if not IsValid(ent) then return end
             if not ent.IsGlideVehicle then return end
-            
+
             -- Skip if restoring
             if restoringVehicles[ent] or ent._RestoreFromDupe then
                 return
             end
-            
-            if SERVER and GlideLicensePlates.CreateLicensePlates then
-                GlideLicensePlates.CreateLicensePlates(ent) 
+
+            if GlideLicensePlates.CreateLicensePlates then
+                GlideLicensePlates.CreateLicensePlates(ent)
             end
         end)
     end)
-    
+
     -- Clean up on map change
     hook.Add("PreCleanupMap", "GlideLicensePlates.DupeColorCleanup", function()
-        duplicatingEntities = {}
-        pendingRestores = {}
         restoringVehicles = {}
     end)
-    
-    -- Advanced Duplicator 2 support
-    if AdvDupe2 then
-        hook.Add("AdvDupe2_PrePaste", "GlideLicensePlates.AdvDupe2Pre", function(data)
-        end)
-        
-        hook.Add("AdvDupe2_PostPaste", "GlideLicensePlates.AdvDupe2Post", function(data)
-            timer.Simple(1, function()
-                duplicatingEntities = {}
-            end)
-        end)
-    end
 end
 
 print("[GLIDE License Plates] License Plate system loaded correctly.")

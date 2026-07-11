@@ -15,7 +15,7 @@ ENT.PlateScale = 0.5
 ENT.PlateFont = "coolvetica"
 ENT.ParentVehicle = NULL
 ENT.ModelRotation = Angle(0, 0, 0)
-ENT.BasePosition = Vector(0, 0, 0) 
+ENT.BasePosition = Vector(0, 0, 0)
 ENT.BaseAngles = Angle(0, 0, 0)
 ENT.PlateSkin = 0
 
@@ -27,11 +27,11 @@ function ENT:SetupDataTables()
     self:NetworkVar("Angle", 0, "ModelRotation")
     self:NetworkVar("Vector", 0, "BasePosition")
     self:NetworkVar("Angle", 1, "BaseAngles")
-    self:NetworkVar("Vector", 1, "TextColor") 
+    self:NetworkVar("Vector", 1, "TextColor")
     self:NetworkVar("Float", 1, "TextAlpha")
-	self:NetworkVar("Vector", 2, "TextOffset") 
-	self:NetworkVar("Int", 0, "PlateSkin") 
-	
+    self:NetworkVar("Vector", 2, "TextOffset")
+    self:NetworkVar("Int", 0, "PlateSkin")
+
     -- Setup network var callbacks
     if CLIENT then
         self:NetworkVarNotify("PlateText", function(ent, name, old, new)
@@ -47,14 +47,14 @@ function ENT:SetupDataTables()
             ent.PlateFont = new
             ent._cachedTextSize = nil
         end)
-		
-        self:NetworkVarNotify("PlateSkin", function(ent, name, old, new) 
+
+        self:NetworkVarNotify("PlateSkin", function(ent, name, old, new)
             ent.PlateSkin = new
             if IsValid(ent) then
-                ent:SetSkin(new) 
+                ent:SetSkin(new)
             end
         end)
-		
+
         self:NetworkVarNotify("TextColor", function(ent, name, old, new)
             if new then
                 ent.CachedTextColor = Color(
@@ -65,7 +65,7 @@ function ENT:SetupDataTables()
                 )
             end
         end)
-        
+
         self:NetworkVarNotify("TextAlpha", function(ent, name, old, new)
             if ent.CachedTextColor then
                 ent.CachedTextColor.a = new
@@ -74,52 +74,18 @@ function ENT:SetupDataTables()
 
         self:NetworkVarNotify("TextOffset", function(ent, name, old, new)
             ent.TextOffset = new
-        end)		
-    end
-    
-    -- Save Support
-    if SERVER then
-
-        local VehicleMeta = FindMetaTable("Entity")
-        if VehicleMeta then
-          
-            local function GLIDESave_TransferPlateData(entity, saveTable)
-                if IsValid(entity.LicensePlateEntity) and entity.LicensePlateEntity:GetClass() == "glide_license_plate" then
-                    local plate = entity.LicensePlateEntity
-                    
-                    saveTable.GLIDE_PlateText = plate:GetPlateText()
-                    saveTable.GLIDE_PlateScale = plate:GetPlateScale()
-                    saveTable.GLIDE_PlateFont = plate:GetPlateFont()
-                    saveTable.GLIDE_ModelRotation = plate:GetModelRotation()
-                    saveTable.GLIDE_BasePosition = plate:GetBasePosition()
-                    saveTable.GLIDE_BaseAngles = plate:GetBaseAngles()
-                    saveTable.GLIDE_TextColor = plate:GetTextColor()
-                    saveTable.GLIDE_TextAlpha = plate:GetTextAlpha()
-                    saveTable.GLIDE_TextOffset = plate:GetTextOffset()
-                    
-                    saveTable.GLIDE_PlateModel = plate:GetModel()
-                    saveTable.GLIDE_PlateMaterial = plate:GetMaterial()
-                    
-                    saveTable.GLIDE_HasLicensePlate = true
-                end
-            end
-
-            if IsValid(self:GetParentVehicle()) then
-
-                self:GetParentVehicle().GLIDE_LicensePlate_PopulateSaveTable = GLIDESave_TransferPlateData
-            end
-        end
+        end)
     end
 end
- 
+
 -- =========================================================================
--- Serialization for Saves and Duplicators 
+-- Serialization for Saves and Duplicators
 -- =========================================================================
 
 -- Function called when the entity is saved (vanilla save or dupe)
 function ENT:Save(table)
     -- Serialize properties that need to persist (Network Variables and local properties)
-    
+
     table.PlateText = self:GetPlateText()
     table.PlateScale = self:GetPlateScale()
     table.PlateFont = self:GetPlateFont()
@@ -130,8 +96,8 @@ function ENT:Save(table)
     table.ModelRotation = self:GetModelRotation() -- Angle
 
     -- Glide-specific saved properties
-    table.PlateType = self.PlateType 
-    table.GlideSavedAlpha = self.GlideSavedAlpha 
+    table.PlateType = self.PlateType
+    table.GlideSavedAlpha = self.GlideSavedAlpha
     table.IsHidden = self:GetNoDraw() -- Current visibility state
     table.ManualHide = self.ManualHide  -- Save manual hide state
     table.Model = self:GetModel() -- Also save the current model
@@ -141,8 +107,8 @@ end
 function ENT:Restore(table)
     -- Deserialize properties and apply them
     self.IsRestored = true -- Flag the entity as being restored
-	
--- Restore manual hide state
+
+    -- Restore manual hide state
     if table.ManualHide then
         self.ManualHide = table.ManualHide
     end
@@ -150,25 +116,25 @@ function ENT:Restore(table)
     if table.Model then
         self:SetModel(table.Model)
     end
-    
+
     -- Restore all NWVars (Set... functions)
     if table.PlateText then
-        self:SetPlateText(table.PlateText) 
+        self:SetPlateText(table.PlateText)
     end
-    
+
     if table.PlateScale then
         self:SetPlateScale(table.PlateScale)
     end
-    
+
     if table.PlateFont then
         self:SetPlateFont(table.PlateFont)
     end
 
     if table.PlateSkin ~= nil then
-        self:SetSkin(table.PlateSkin) 
+        self:SetSkin(table.PlateSkin)
         self:SetPlateSkin(table.PlateSkin)
     end
-    
+
     if table.TextColor and table.TextAlpha ~= nil then
         self:SetTextColor(table.TextColor)
         self:SetTextAlpha(table.TextAlpha)
@@ -181,7 +147,7 @@ function ENT:Restore(table)
     if table.ModelRotation then
         self:SetModelRotation(table.ModelRotation)
     end
-    
+
     -- Glide-specific restored properties
     if table.PlateType then
         self.PlateType = table.PlateType
@@ -189,62 +155,44 @@ function ENT:Restore(table)
     if table.GlideSavedAlpha ~= nil then
         self.GlideSavedAlpha = table.GlideSavedAlpha
     end
-    
+
     if table.IsHidden ~= nil then
         local isHidden = tobool(table.IsHidden)
         self:SetNoDraw(isHidden)
         self:SetTextAlpha(isHidden and 0 or (self.GlideSavedAlpha or 255))
         self:SetNotSolid(isHidden)
     end
-    
 
     if SERVER then
         -- Delay the final setup until the next frame to ensure the parent vehicle is fully restored.
         timer.Simple(0, function()
             if not IsValid(self) then return end
-            
+
             -- Force-apply the model and rotation via the server update functions
             if self.UpdatePlateModel and table.Model then
-                self:UpdatePlateModel(table.Model) -- Updates model, physics, and position
+                self:UpdatePlateModel(table.Model) -- Updates model and position
             end
-            
+
             if self.UpdateModelRotation and table.ModelRotation then
                 self:UpdateModelRotation(table.ModelRotation)
             end
-            
-            -- CRITICAL: Force the text update with the saved text. 
+
+            -- CRITICAL: Force the text update with the saved text.
             -- This ensures the custom logic of the system applies the restored NWVar.
             if self.UpdatePlateText and table.PlateText then
                 self:UpdatePlateText(table.PlateText)
             end
-            
-            -- If the vehicle uses the old single-plate reference, update the text field on the vehicle
-            local vehicle = self:GetParentVehicle()
-            if IsValid(vehicle) and vehicle.LicensePlateEntity == self then
-                vehicle.LicensePlateText = self:GetPlateText() 
-            end
-
         end)
     end
-
-    -- Ensure physics is set up for the restored model
-    if SERVER and self:GetModel() ~= "" then
-        self:PhysicsInit(SOLID_VPHYSICS)
-        local phys = self:GetPhysicsObject()
-        if IsValid(phys) then
-            phys:Sleep()
-        end
-    end
 end
- 
+
 function ENT:Initialize()
     if SERVER then
-        self:SetModel("")
-        self:PhysicsInit(SOLID_VPHYSICS)
+        -- Plates are purely decorative: no physics object, no collisions.
+        -- They follow the vehicle via SetParent (see UpdatePosition).
         self:SetMoveType(MOVETYPE_NONE)
         self:SetSolid(SOLID_NONE)
         self:SetCollisionGroup(COLLISION_GROUP_WORLD)
-        
         self:SetNotSolid(true)
 
         -- Default color
@@ -258,9 +206,9 @@ function ENT:Initialize()
         self.PlateText = self:GetPlateText() or ""
         self.PlateScale = self:GetPlateScale() or 0.5
         self.PlateFont = self:GetPlateFont() or "Arial"
-		self.TextOffset = self:GetTextOffset() or Vector(0, 0, 0) 
-		self.PlateSkin = self:GetPlateSkin() or 0
-		
+        self.TextOffset = self:GetTextOffset() or Vector(0, 0, 0)
+        self.PlateSkin = self:GetPlateSkin() or 0
+
         local colorVec = self:GetTextColor()
         if colorVec then
             self.CachedTextColor = Color(
@@ -273,76 +221,30 @@ function ENT:Initialize()
             self.CachedTextColor = Color(0, 0, 0, 255)
         end
     end
-     
+
     -- Apply initial configuration (without forcing unnecessary updates)
     if self.ModelRotation then
         self:SetModelRotation(self.ModelRotation)
     end
-    
-    if IsValid(self.ParentVehicle) then
-        self:SetParentVehicle(self.ParentVehicle)
-    end
-end
-
-function ENT:UpdatePosition()
-    if not IsValid(self:GetParentVehicle()) then return end
-    
-    local vehicle = self:GetParentVehicle()
-    local basePos = self:GetBasePosition()
-    local baseAng = self:GetBaseAngles()
-    local modelRot = self:GetModelRotation()
-    
-    -- Calculate world position from vehicle's base position 
-    local worldPos = vehicle:LocalToWorld(basePos)
-    
-    -- Calculate final angles combining base + rotation of the model
-    local finalAngles = vehicle:LocalToWorldAngles(baseAng + modelRot)
-    
-    -- Apply position and angles
-    self:SetPos(worldPos)
-    self:SetAngles(finalAngles)
 end
 
 if CLIENT then
-    -- Track if entity is ready for rendering
-    ENT.ReadyForRender = false
-    ENT.InitAttempts = 0
-    
+    local cvEnabled
+
     function ENT:Draw()
-        -- Draw model
+        -- Client-side toggle: skip drawing instead of touching NoDraw,
+        -- so it never fights the server-side (bodygroup/tool) visibility state.
+        cvEnabled = cvEnabled or GetConVar("glide_license_plates_enabled")
+        if cvEnabled and not cvEnabled:GetBool() then return end
+
         self:DrawModel()
-        return
-    end
-    
-    function ENT:Think()
-        -- NetworkVarNotify handles Text/Scale/Font/Color updates.
-        -- Here we only update position and manage ReadyForRender.
-        if IsValid(self:GetParentVehicle()) then
-            self.ParentVehicle = self:GetParentVehicle()
-            self:UpdatePosition()
-            if not self.ReadyForRender and self.PlateText ~= "" and self.CachedTextColor then
-                self.ReadyForRender = true
-                self.InitAttempts = 0
-            end
-        else
-            self.InitAttempts = (self.InitAttempts or 0) + 1
-            if self.InitAttempts > 50 then
-                self.ReadyForRender = true
-            end
-        end
-        return true
     end
 end
 
 if SERVER then
-    function ENT:UpdateTransmitState()
-        return TRANSMIT_ALWAYS
-    end
-    
     function ENT:OnRemove()
         if IsValid(self.ParentVehicle) then
             local vehicle = self.ParentVehicle
-            vehicle.LicensePlateEntity = nil
 
             if GlideLicensePlates and GlideLicensePlates.ActivePlates then
                 local vehiclePlates = GlideLicensePlates.ActivePlates[vehicle]
@@ -355,101 +257,103 @@ if SERVER then
             end
         end
     end
-    
+
+    -- Keep the plate attached to the vehicle. Parenting makes the engine move
+    -- (and transmit) the plate with the vehicle: no per-tick updates needed.
+    function ENT:UpdatePosition()
+        local vehicle = self:GetParentVehicle()
+        if not IsValid(vehicle) then return end
+
+        if self:GetParent() ~= vehicle then
+            self:SetParent(vehicle)
+        end
+
+        self:SetLocalPos(self:GetBasePosition())
+        self:SetLocalAngles(self:GetBaseAngles() + self:GetModelRotation())
+    end
+
     -- Set base position and angles (relative to vehicle)
     function ENT:SetBaseTransform(position, angles)
         if position then
             self.BasePosition = position
             self:SetBasePosition(position)
         end
-        
+
         if angles then
             self.BaseAngles = angles
             self:SetBaseAngles(angles)
         end
-        
+
         -- Update position immediately
         self:UpdatePosition()
     end
-    
+
     function ENT:UpdatePlateText(newText)
         if not newText or newText == "" then return end
-        
+
         self.PlateText = newText
         self:SetPlateText(newText)
-        
-        if IsValid(self.ParentVehicle) then
-            self.ParentVehicle.LicensePlateText = newText
-        end
     end
-    
+
     function ENT:UpdatePlateScale(newScale)
         if not newScale or newScale <= 0 then return end
-        
+
         self.PlateScale = newScale
         self:SetPlateScale(newScale)
     end
-    
+
     function ENT:UpdatePlateFont(newFont)
         if not newFont or newFont == "" then return end
-        
+
         self.PlateFont = newFont
         self:SetPlateFont(newFont)
     end
-    
-    function ENT:SetParentVehicle(vehicle)
-        if not IsValid(vehicle) then return end
-        
-        self.ParentVehicle = vehicle
-        self:SetParentVehicle(vehicle)
-        
-        -- Make the plate delete when the vehicle is deleted
-        vehicle:DeleteOnRemove(self)
-        
-        -- Assign the license plate entity to the vehicle (CRUCIAL for saving)
-        vehicle.LicensePlateEntity = self
+
+    function ENT:UpdatePlateSkin(newSkin)
+        newSkin = tonumber(newSkin)
+        if not newSkin or newSkin < 0 then return end
+
+        self.PlateSkin = newSkin
+        self:SetPlateSkin(newSkin)
+        self:SetSkin(newSkin)
     end
-    
+
     function ENT:UpdatePlateModel(newModel)
         if not newModel or newModel == "" then return end
         if not util.IsValidModel(newModel) then return end
-        
+
         self:SetModel(newModel)
-        self:PhysicsInit(SOLID_VPHYSICS)
-        
-        local phys = self:GetPhysicsObject()
-        if IsValid(phys) then
-            phys:Sleep()
-        end
-        
+
         -- Update position after changing model
         self:UpdatePosition()
     end
-    
+
     function ENT:UpdatePlateMaterial(newMaterial, plateColor)
         if newMaterial and newMaterial ~= "" then
             self:SetMaterial(newMaterial)
         end
-        
+
         if plateColor and type(plateColor) == "table" then
             self:SetColor(Color(plateColor.r or 255, plateColor.g or 255, plateColor.b or 255, plateColor.a or 255))
         end
-    end 
-    
+    end
+
     -- Update model rotation
     function ENT:UpdateModelRotation(newRotation)
         if not newRotation or type(newRotation) ~= "Angle" then return end
-        
+
         self.ModelRotation = newRotation
         self:SetModelRotation(newRotation)
-        
+
         -- Update position and angles immediately
         self:UpdatePosition()
     end
 end
 
 function ENT:CanTool(ply, trace, tool)
-    return true
+    -- Only allow the plate editor: prevents random tools (material, remover...)
+    -- from being applied to plates, which have no CPPI owner of their own.
+    return tool == "glide_plate_editor"
 end
 
 function ENT:PhysgunPickup(ply)

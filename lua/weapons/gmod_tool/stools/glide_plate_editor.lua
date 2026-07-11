@@ -3,11 +3,12 @@
 TOOL.Category = "Glide"
 TOOL.Name = "#tool.glide_plate_editor.name"
 TOOL.Command = nil
-TOOL.ConfigName = "" 
+TOOL.ConfigName = ""
 
 TOOL.Description = "#tool.glide_plate_editor.desc"
 TOOL.Info = "#tool.glide_plate_editor.desc"
 
+-- These are automatically registered as glide_plate_editor_* client ConVars
 TOOL.ClientConVar = {
     type = "mercosur plate",
     text = "",
@@ -26,53 +27,46 @@ TOOL.ClientConVar = {
 
 local ToolDefaults = TOOL.ClientConVar
 
--- Create ConVars for the tool
-if CLIENT then
-    CreateClientConVar("glide_plate_editor_type", "mercosur plate", true, false)
-    CreateClientConVar("glide_plate_editor_text", "", true, false)
-    CreateClientConVar("glide_plate_editor_scale", "0.5", true, false)
-    CreateClientConVar("glide_plate_editor_skin", "0", true, false)
-    CreateClientConVar("glide_plate_editor_font", "Arial", true, false)
-    CreateClientConVar("glide_plate_editor_hidden", "0", true, false)
-    CreateClientConVar("glide_plate_editor_offset_x", "0", true, false)
-    CreateClientConVar("glide_plate_editor_offset_y", "0", true, false)
-    CreateClientConVar("glide_plate_editor_offset_z", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_r", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_g", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_b", "0", true, false)
-    CreateClientConVar("glide_plate_editor_color_a", "255", true, false)
-end
-
 local usasmallplatemodel = "models/blackterios_glide_vehicles/licenseplates/smallplate.mdl"
 local europeanlongplatemodel = "models/blackterios_glide_vehicles/licenseplates/europeplate.mdl"
 local mercosurplatemodel = "models/blackterios_glide_vehicles/licenseplates/mercosurplate.mdl"
 local argentinasmallplatemodel = "models/blackterios_glide_vehicles/licenseplates/argentinaold.mdl"
 local argentinablacklongplatemodel = "models/blackterios_glide_vehicles/licenseplates/argentinavintage.mdl"
 
--- Define the allowed types and their models for filtering and model setting
+-- Allowed types for the tool. `typeId` is the representative entry in
+-- GlideLicensePlates.PlateTypes used to pull defaults (font/scale/color/offset/pattern).
 local ALLOWED_PLATES = {
     ["usa small plate"] = {
         label = "usa small plate",
-        model = usasmallplatemodel
+        model = usasmallplatemodel,
+        typeId = "usacalifornia"
     },
     ["european long plate"] = {
         label = "european long plate",
-        model = europeanlongplatemodel
+        model = europeanlongplatemodel,
+        typeId = "europegermany"
     },
     ["mercosur plate"] = {
         label = "mercosur plate",
-        model = mercosurplatemodel
+        model = mercosurplatemodel,
+        typeId = "argmercosur"
     },
     ["argentina small plate"] = {
         label = "argentina small plate",
-        model = argentinasmallplatemodel
+        model = argentinasmallplatemodel,
+        typeId = "argold"
     },
     ["black long plate"] = {
         label = "black long plate",
-        model = argentinablacklongplatemodel
+        model = argentinablacklongplatemodel,
+        typeId = "argvintage"
     }
 }
 
+-- Limits for values received over the network
+local MIN_SCALE, MAX_SCALE = 0.1, 2
+local MAX_SKIN = 30
+local MAX_OFFSET = 10
 
 -- Networking setup
 if SERVER then
@@ -83,76 +77,68 @@ end
 -- Shared variable (declared once at top of file)
 local SELECTED_VEHICLE_NW = "GlidePlateEditor_Target"
 
+-- Map a plate entity to the tool type key that matches its current model.
+-- Returns nil for unknown/custom models (e.g. the invisible plate).
+local function GetToolTypeForPlate(plateEnt)
+    local model = plateEnt:GetModel()
+    for key, data in pairs(ALLOWED_PLATES) do
+        if data.model == model then return key end
+    end
+    return nil
+end
+
 -- Called when the user Left Clicks
 function TOOL:LeftClick(trace)
     local ent = trace.Entity
-    
+
     if CLIENT then return true end -- Only allow server to process selection logic
-    
+
     -- SERVER LOGIC STARTS HERE
     local ply = self:GetOwner()
     local wep = self:GetWeapon()
     local currentSelected = wep:GetNWEntity(SELECTED_VEHICLE_NW)
 
     -- Check if target is valid and a Glide Vehicle
-    if (not IsValid(ent) or not ent.IsGlideVehicle) then 
+    if (not IsValid(ent) or not ent.IsGlideVehicle) then
         if IsValid(currentSelected) and currentSelected != ent then
             self:RightClick(nil) -- Deselect if clicking something else
         end
-        return false 
+        return false
     end
 
     local platesData = {}
     local hasPlates = false
-    
-    -- Check if it's the new multi-plate system (preferred)
+
     if ent.LicensePlateEntities and next(ent.LicensePlateEntities) then
         for id, plateEnt in pairs(ent.LicensePlateEntities) do
             if IsValid(plateEnt) and plateEnt:GetClass() == "glide_license_plate" then
                 hasPlates = true
                 platesData[id] = {
                     text = plateEnt:GetPlateText(),
-                    type = plateEnt.PlateType or "mercosur plate", 
+                    type = GetToolTypeForPlate(plateEnt) or "mercosur plate",
                     scale = plateEnt:GetPlateScale(),
                     font = plateEnt:GetPlateFont(),
                     skin = plateEnt:GetPlateSkin(),
                     color = plateEnt:GetTextColor(), -- Vector
                     alpha = plateEnt:GetTextAlpha(),
                     offset = plateEnt:GetTextOffset(), -- Vector
-                    model = plateEnt:GetModel(), 
+                    model = plateEnt:GetModel(),
                     hidden = plateEnt:GetNoDraw()
                 }
             end
         end
-    -- Fallback for the old single-plate system
-    elseif IsValid(ent.LicensePlateEntity) and ent.LicensePlateEntity:GetClass() == "glide_license_plate" then
-        local plateEnt = ent.LicensePlateEntity
-        local id = "main"
-        hasPlates = true
-        platesData[id] = {
-            text = plateEnt:GetPlateText(),
-            type = plateEnt.PlateType or "mercosur plate", 
-            scale = plateEnt:GetPlateScale(),
-            font = plateEnt:GetPlateFont(),
-            skin = plateEnt:GetPlateSkin(),
-            color = plateEnt:GetTextColor(), -- Vector
-            alpha = plateEnt:GetTextAlpha(),
-            offset = plateEnt:GetTextOffset(), -- Vector
-            model = plateEnt:GetModel(),
-            hidden = plateEnt:GetNoDraw()
-        }
     end
 
     local targetEnt = ent
-    if not hasPlates then 
+    if not hasPlates then
         wep:SetNWEntity(SELECTED_VEHICLE_NW, NULL)
         targetEnt = NULL
         -- Use localization key prefixed with # for server-side chat print
-        ply:ChatPrint("#glide_pe_support_warning") 
+        ply:ChatPrint("#glide_pe_support_warning")
     else
         wep:SetNWEntity(SELECTED_VEHICLE_NW, ent)
     end
-    
+
     -- Send net message with data to the client
     net.Start("GlidePlateEditor_Select")
     net.WriteEntity(targetEnt)
@@ -165,18 +151,18 @@ end
 -- Called when the user Right Clicks (Deselects)
 function TOOL:RightClick(trace)
     if CLIENT then return true end
-    
+
     local ply = self:GetOwner()
     local wep = self:GetWeapon()
-    
+
     wep:SetNWEntity(SELECTED_VEHICLE_NW, NULL)
-    
+
     -- Notify client of deselection
     net.Start("GlidePlateEditor_Select")
     net.WriteEntity(NULL)
     net.WriteTable({})
     net.Send(ply)
-    
+
     return true
 end
 
@@ -196,9 +182,10 @@ if CLIENT then
     local CurrentSelection = nil
     local CurrentPlatesData = {}
     local SelectedPlateID = nil
-    local EditorPanel = nil 
+    local EditorPanel = nil
     local IgnoreConVarChanges = false -- Flag to prevent loop when syncing selection
-    
+    local RebuildControlPanel -- forward declaration (kept local, defined below)
+
     -- Helper to get and prioritize fonts
     local function GetPrioritizedFonts(currentFont)
         local REQUIRED_FONTS = {
@@ -210,9 +197,9 @@ if CLIENT then
             "GL-Nummernschild-Mtl",
             "Dealerplate California",
         }
-        
+
         local allFontsMap = {}
-        if surface and surface.GetAvailableFonts then 
+        if surface and surface.GetAvailableFonts then
             for _, fontName in ipairs(surface.GetAvailableFonts()) do
                 allFontsMap[fontName] = true
             end
@@ -220,7 +207,7 @@ if CLIENT then
 
         local prioritizedFonts = {}
         local added = {}
-        
+
         -- Add current font first if it's not a required one
         local currentFontIsRequired = false
         for _, reqFont in ipairs(REQUIRED_FONTS) do
@@ -242,36 +229,49 @@ if CLIENT then
                 added[fontName] = true
             end
         end
-        
+
         return prioritizedFonts
+    end
+
+    -- Set a tool ConVar SYNCHRONOUSLY. RunConsoleCommand queues the change for
+    -- later in the frame, so the IgnoreConVarChanges flag would already be false
+    -- when the change callbacks fire -- making the tool re-send every synced
+    -- value to the server as if the user had edited it (regenerating texts and
+    -- mixing offsets between plates when switching the selected plate).
+    -- ConVar:SetString applies immediately, while the flag is still set.
+    local function SetToolConVar(name, value)
+        local cv = GetConVar(name)
+        if cv then
+            cv:SetString(tostring(value))
+        end
     end
 
     -- Function to sync tool ConVars from Vehicle Data (without triggering update loop)
     local function SyncToolToVehicle(data)
         IgnoreConVarChanges = true
-        
+
         -- Force text to be empty in the UI by default on selection to avoid unexpected updates
-        RunConsoleCommand("glide_plate_editor_text", "") 
-        
-        if data.type then RunConsoleCommand("glide_plate_editor_type", data.type) end
-        if data.scale then RunConsoleCommand("glide_plate_editor_scale", tostring(data.scale)) end
-        if data.skin then RunConsoleCommand("glide_plate_editor_skin", tostring(data.skin)) end
-        if data.font then RunConsoleCommand("glide_plate_editor_font", data.font) end
+        SetToolConVar("glide_plate_editor_text", "")
+
+        if data.type then SetToolConVar("glide_plate_editor_type", data.type) end
+        if data.scale then SetToolConVar("glide_plate_editor_scale", data.scale) end
+        if data.skin then SetToolConVar("glide_plate_editor_skin", data.skin) end
+        if data.font then SetToolConVar("glide_plate_editor_font", data.font) end
         -- Convar expects "1" or "0"
-        if data.hidden ~= nil then RunConsoleCommand("glide_plate_editor_hidden", data.hidden and "1" or "0") end 
-        
-        if data.offset then 
-            RunConsoleCommand("glide_plate_editor_offset_x", tostring(data.offset.x))
-            RunConsoleCommand("glide_plate_editor_offset_y", tostring(data.offset.y))
-            RunConsoleCommand("glide_plate_editor_offset_z", tostring(data.offset.z))
+        if data.hidden ~= nil then SetToolConVar("glide_plate_editor_hidden", data.hidden and "1" or "0") end
+
+        if data.offset then
+            SetToolConVar("glide_plate_editor_offset_x", data.offset.x)
+            SetToolConVar("glide_plate_editor_offset_y", data.offset.y)
+            SetToolConVar("glide_plate_editor_offset_z", data.offset.z)
         end
-        
+
         if data.color then
             -- Color vector is (r, g, b)
-            RunConsoleCommand("glide_plate_editor_color_r", tostring(data.color.x))
-            RunConsoleCommand("glide_plate_editor_color_g", tostring(data.color.y))
-            RunConsoleCommand("glide_plate_editor_color_b", tostring(data.color.z))
-            if data.alpha then RunConsoleCommand("glide_plate_editor_color_a", tostring(data.alpha)) end
+            SetToolConVar("glide_plate_editor_color_r", data.color.x)
+            SetToolConVar("glide_plate_editor_color_g", data.color.y)
+            SetToolConVar("glide_plate_editor_color_b", data.color.z)
+            if data.alpha then SetToolConVar("glide_plate_editor_color_a", data.alpha) end
         end
 
         IgnoreConVarChanges = false
@@ -281,14 +281,14 @@ if CLIENT then
     local function SendUpdate(key, value)
         if IgnoreConVarChanges then return end
         if not IsValid(CurrentSelection) or not SelectedPlateID then return end
-        
+
         net.Start("GlidePlateEditor_Update")
         net.WriteEntity(CurrentSelection)
         net.WriteString(SelectedPlateID)
         net.WriteString(key)
         net.WriteType(value)
         net.SendToServer()
-        
+
         -- Update local cache to match
         if CurrentPlatesData[SelectedPlateID] then
             if key == "color_alpha" then
@@ -299,7 +299,7 @@ if CLIENT then
                  -- Offset sends a Vector
                  CurrentPlatesData[SelectedPlateID].offset = value
             elseif key == "type" then
-                -- Logic for Type change side effects is handled on Server, 
+                -- Logic for Type change side effects is handled on Server,
                 -- but we update local type reference to keep UI consistent
                 CurrentPlatesData[SelectedPlateID].type = value
             else
@@ -316,13 +316,13 @@ if CLIENT then
     local function AddCallback(cvarName, key, typeConversion)
         cvars.AddChangeCallback(cvarName, function(convar_name, old_value, new_value)
             if IgnoreConVarChanges then return end
-            
+
             local val = new_value
             if typeConversion == "number" then val = tonumber(new_value) end
             if typeConversion == "bool" then val = tobool(new_value) end
-            
+
             SendUpdate(key, val)
-            
+
             -- If plate type changes, we need to rebuild UI to update available fonts/defaults if necessary
             if key == "type" and IsValid(EditorPanel) then
                  -- Delay slightly to ensure data propagation
@@ -337,31 +337,36 @@ if CLIENT then
     AddCallback("glide_plate_editor_skin", "skin", "number")
     AddCallback("glide_plate_editor_font", "font")
     AddCallback("glide_plate_editor_hidden", "hidden", "bool")
-    
-    -- Special handling for Vectors (Offset)
+
+    -- Special handling for Vectors (Offset).
+    -- Coalesced with a 0s timer: changing several components in the same frame
+    -- (e.g. a preset load) sends ONE message with the final vector, instead of
+    -- three messages with partially-updated components.
     local function UpdateOffset()
         if IgnoreConVarChanges then return end
-        local vec = Vector(
-            GetConVar("glide_plate_editor_offset_x"):GetFloat(),
-            GetConVar("glide_plate_editor_offset_y"):GetFloat(),
-            GetConVar("glide_plate_editor_offset_z"):GetFloat()
-        )
-        SendUpdate("offset", vec)
+        timer.Create("GlidePlateEditor_SyncOffset", 0, 1, function()
+            SendUpdate("offset", Vector(
+                GetConVar("glide_plate_editor_offset_x"):GetFloat(),
+                GetConVar("glide_plate_editor_offset_y"):GetFloat(),
+                GetConVar("glide_plate_editor_offset_z"):GetFloat()
+            ))
+        end)
     end
     cvars.AddChangeCallback("glide_plate_editor_offset_x", UpdateOffset, "GlideSyncOSX")
     cvars.AddChangeCallback("glide_plate_editor_offset_y", UpdateOffset, "GlideSyncOSY")
     cvars.AddChangeCallback("glide_plate_editor_offset_z", UpdateOffset, "GlideSyncOSZ")
 
-    -- Special handling for Color
+    -- Special handling for Color (coalesced like the offset)
     local function UpdateColor()
         if IgnoreConVarChanges then return end
-        local col = {
-            r = GetConVar("glide_plate_editor_color_r"):GetInt(),
-            g = GetConVar("glide_plate_editor_color_g"):GetInt(),
-            b = GetConVar("glide_plate_editor_color_b"):GetInt(),
-            a = GetConVar("glide_plate_editor_color_a"):GetInt()
-        }
-        SendUpdate("color_alpha", col)
+        timer.Create("GlidePlateEditor_SyncColor", 0, 1, function()
+            SendUpdate("color_alpha", {
+                r = GetConVar("glide_plate_editor_color_r"):GetInt(),
+                g = GetConVar("glide_plate_editor_color_g"):GetInt(),
+                b = GetConVar("glide_plate_editor_color_b"):GetInt(),
+                a = GetConVar("glide_plate_editor_color_a"):GetInt()
+            })
+        end)
     end
     cvars.AddChangeCallback("glide_plate_editor_color_r", UpdateColor, "GlideSyncCR")
     cvars.AddChangeCallback("glide_plate_editor_color_g", UpdateColor, "GlideSyncCG")
@@ -373,7 +378,7 @@ if CLIENT then
     net.Receive("GlidePlateEditor_Select", function()
         CurrentSelection = net.ReadEntity()
         CurrentPlatesData = net.ReadTable()
-        
+
         SelectedPlateID = nil
         if IsValid(CurrentSelection) and next(CurrentPlatesData) then
             -- Default to the first found ID
@@ -381,7 +386,7 @@ if CLIENT then
                 SelectedPlateID = id
                 break
             end
-            
+
             -- Sync ConVars to match the selected vehicle initially
             if SelectedPlateID and CurrentPlatesData[SelectedPlateID] then
                 SyncToolToVehicle(CurrentPlatesData[SelectedPlateID])
@@ -398,10 +403,10 @@ if CLIENT then
     hook.Add("PreDrawHalos", "GlidePlateEditor_Halo", function()
         local ply = LocalPlayer()
         if not IsValid(ply) then return end
-        
+
         local wep = ply:GetActiveWeapon()
         if not IsValid(wep) or wep:GetClass() ~= "gmod_tool" then return end
-        
+
         local toolObj = ply:GetTool()
         if not toolObj or toolObj.Mode ~= "glide_plate_editor" then return end
 
@@ -418,7 +423,7 @@ if CLIENT then
         -- 0. PRESETS (Added Feature)
         local presetParams = {
             -- Use localization key for the Presets label
-            Label = language.GetPhrase("glide_pe_presets"), 
+            Label = language.GetPhrase("glide_pe_presets"),
             MenuButton = 1,
             Folder = "glide_license_plate",
             Options = {
@@ -446,16 +451,16 @@ if CLIENT then
                     glide_plate_editor_color_a = "255"
                 }
             },
-            CVars = table.GetKeys(ToolDefaults) 
+            CVars = table.GetKeys(ToolDefaults)
         }
-        
+
         -- Prefix CVars for the preset system
         for k, v in ipairs(presetParams.CVars) do
             presetParams.CVars[k] = "glide_plate_editor_" .. v
         end
-        
+
         panel:AddControl("ComboBox", presetParams)
-        
+
         -- 1. Selection Dropdown
         -- Use localization key for label
         local idCombo, idLabel = panel:ComboBox(language.GetPhrase("glide_pe_plate_id"))
@@ -463,7 +468,7 @@ if CLIENT then
         for id, _ in pairs(CurrentPlatesData) do
             idCombo:AddChoice(id, id, id == SelectedPlateID)
         end
-        
+
         idCombo.OnSelect = function(self, index, value)
             SelectedPlateID = value
             -- When switching IDs, sync tool to this new plate
@@ -474,7 +479,7 @@ if CLIENT then
         end
 
         if not SelectedPlateID or not CurrentPlatesData[SelectedPlateID] then return end
-        
+
         -- Get current data to populate lists, but controls are bound to ConVars
         local data = CurrentPlatesData[SelectedPlateID]
 
@@ -500,24 +505,24 @@ if CLIENT then
         catCustom:SetContents(formCustom)
 
         -- --- Basic Controls ---
-        
-		-- Plate Type Selector 
-		-- Use localization key for label
-		local typeComboBox, typeLabel = formCustom:ComboBox(language.GetPhrase("glide_pe_type"))
 
-		-- Verify typeComboBox is valid before using it
-		if IsValid(typeComboBox) then
-			typeComboBox:Clear()
-			local currentType = GetConVar("glide_plate_editor_type"):GetString()
-			for typeKey, typeData in pairs(ALLOWED_PLATES) do
-				typeComboBox:AddChoice(typeData.label, typeKey, typeKey == currentType)
-			end
-			
-			-- Manual handling for ComboBox to update ConVar
-			typeComboBox.OnSelect = function(self, idx, val, dataVal)
-				RunConsoleCommand("glide_plate_editor_type", dataVal)
-			end
-		end
+        -- Plate Type Selector
+        -- Use localization key for label
+        local typeComboBox, typeLabel = formCustom:ComboBox(language.GetPhrase("glide_pe_type"))
+
+        -- Verify typeComboBox is valid before using it
+        if IsValid(typeComboBox) then
+            typeComboBox:Clear()
+            local currentType = GetConVar("glide_plate_editor_type"):GetString()
+            for typeKey, typeData in pairs(ALLOWED_PLATES) do
+                typeComboBox:AddChoice(typeData.label, typeKey, typeKey == currentType)
+            end
+
+            -- Manual handling for ComboBox to update ConVar
+            typeComboBox.OnSelect = function(self, idx, val, dataVal)
+                RunConsoleCommand("glide_plate_editor_type", dataVal)
+            end
+        end
         -- Basic Controls: Offset (Bound to ConVars)
         -- Use localization key for labels
         local xSlide = formCustom:NumSlider(language.GetPhrase("glide_pe_text_pos_X"), "glide_plate_editor_offset_x", -5, 5, 2)
@@ -531,24 +536,24 @@ if CLIENT then
         mixer:SetPalette(true)
         mixer:SetAlphaBar(true)
         mixer:SetWangs(true)
-        
+
         -- Link DColorMixer to ConVars
         mixer:SetConVarR("glide_plate_editor_color_r")
         mixer:SetConVarG("glide_plate_editor_color_g")
         mixer:SetConVarB("glide_plate_editor_color_b")
         mixer:SetConVarA("glide_plate_editor_color_a")
-        
+
         formCustom:AddItem(mixer)
 
         -- Basic Controls: Scale (Bound to ConVar)
         -- Use localization key for label
         formCustom:NumSlider(language.GetPhrase("glide_pe_text_scale"), "glide_plate_editor_scale", 0.1, 2.0, 2)
-        
+
         -- --- Advanced Controls ---
 
         -- Advanced Controls: Skin Slider (Bound to ConVar)
         -- Use localization key for label
-        local defaultMaxSkin = 30 
+        local defaultMaxSkin = 30
         local currentSkin = data.skin or 0
         local maxSkin = math.max(defaultMaxSkin, currentSkin)
 
@@ -561,11 +566,11 @@ if CLIENT then
         -- Use localization key for label
         local fontEntry, fontLabel = formCustom:ComboBox(language.GetPhrase("glide_pe_font"))
         fontEntry:SetSortItems(false)
-        
+
         for _, fontName in ipairs(fontList) do
             fontEntry:AddChoice(fontName, fontName, fontName == currentFont)
         end
-        
+
         fontEntry.OnSelect = function(self, index, value)
             RunConsoleCommand("glide_plate_editor_font", value)
         end
@@ -579,29 +584,48 @@ end
 
 -- Server Side Logic
 if SERVER then
-    -- Hardcoded map for the requested plates to set models on the server
-    local ALLOWED_PLATES_SERVER = {
-            ["usa small plate"] = {
-                label = "usa small plate",
-                model = usasmallplatemodel
-            },
-            ["european long plate"] = {
-                label = "european long plate",
-                model = europeanlongplatemodel
-            },
-            ["mercosur plate"] = {
-                label = "mercosur plate",
-                model = mercosurplatemodel
-            },
-            ["argentina small plate"] = {
-                label = "argentina small plate",
-                model = argentinasmallplatemodel
-            },
-            ["black long plate"] = {
-                label = "black long plate",
-                model = argentinablacklongplatemodel
-            }
-    }
+    -- Who can edit plates with the tool:
+    -- 0 = vehicle owner (CPPI/creator) or admin, 1 = admins only, 2 = everyone
+    local cvEditMode = CreateConVar("glide_plates_edit_mode", "0", FCVAR_ARCHIVE,
+        "Who can edit license plates with the tool: 0 = owner/admin, 1 = admins only, 2 = everyone", 0, 2)
+
+    local function CanEditVehiclePlates(ply, vehicle)
+        local mode = cvEditMode:GetInt()
+        if mode == 2 then return true end
+        if ply:IsAdmin() then return true end
+        if mode == 1 then return false end
+
+        -- mode 0: owner or admin. Prefer CPPI (prop protection) if available.
+        if vehicle.CPPIGetOwner then
+            local owner = vehicle:CPPIGetOwner()
+            if isentity(owner) and owner == ply then return true end
+        end
+
+        return vehicle:GetCreator() == ply
+    end
+
+    -- Simple rate limit: max updates per player per second.
+    -- Loading a preset legitimately sends ~7 updates in one frame, so this
+    -- must be comfortably above that while still stopping spam.
+    local MAX_UPDATES_PER_SECOND = 30
+    local rateBuckets = {}
+
+    hook.Add("PlayerDisconnected", "GlidePlateEditor.RateCleanup", function(ply)
+        rateBuckets[ply] = nil
+    end)
+
+    local function IsRateLimited(ply)
+        local now = CurTime()
+        local bucket = rateBuckets[ply]
+
+        if not bucket or now > bucket.reset then
+            bucket = { count = 0, reset = now + 1 }
+            rateBuckets[ply] = bucket
+        end
+
+        bucket.count = bucket.count + 1
+        return bucket.count > MAX_UPDATES_PER_SECOND
+    end
 
     net.Receive("GlidePlateEditor_Update", function(len, ply)
         local vehicle = net.ReadEntity()
@@ -610,8 +634,22 @@ if SERVER then
         local value = net.ReadType()
 
         -- Validation
+        if not IsValid(ply) then return end
         if not IsValid(vehicle) or not vehicle.IsGlideVehicle then return end
-        
+        if not GlideLicensePlates or not GlideLicensePlates.Config then return end
+        if IsRateLimited(ply) then return end
+
+        -- The player must have this vehicle selected with the plate editor tool
+        local wep = ply:GetActiveWeapon()
+        if not IsValid(wep) or wep:GetClass() ~= "gmod_tool" then return end
+        if wep:GetNWEntity(SELECTED_VEHICLE_NW) ~= vehicle then return end
+
+        -- Ownership / permission check
+        if not CanEditVehiclePlates(ply, vehicle) then
+            ply:ChatPrint("[GLIDE License Plates] Only the vehicle owner or an admin can edit these plates.")
+            return
+        end
+
         local plateEntity = nil
         -- Check if the plate entity exists under the selected ID
         if vehicle.LicensePlateEntities then
@@ -622,28 +660,35 @@ if SERVER then
 
         -- Apply Changes based on Key
         if key == "text" then
-            if type(value) == "string" and #value <= (GlideLicensePlates.Config.MaxCharacters or 20) then
-                -- UpdatePlateText with "" forces regeneration based on current PlateType.
-                plateEntity:UpdatePlateText(value) 
+            if type(value) == "string" then
+                value = string.gsub(value, "%c", "") -- strip control characters
+                local maxCharacters = GlideLicensePlates.Config.MaxCharacters or 20
+                if #value > 0 and #value <= maxCharacters then
+                    plateEntity:UpdatePlateText(value)
 
-                -- Update vehicle save data (if available)
-                if vehicle.LicensePlateTexts then vehicle.LicensePlateTexts[plateId] = plateEntity:GetPlateText() end
+                    -- Mark as manually-set: type changes will preserve this text
+                    vehicle.PlateHasCustomText = vehicle.PlateHasCustomText or {}
+                    vehicle.PlateHasCustomText[plateId] = true
+
+                    -- Update vehicle save data (if available)
+                    if vehicle.LicensePlateTexts then vehicle.LicensePlateTexts[plateId] = plateEntity:GetPlateText() end
+                end
             end
-        
-		elseif key == "hidden" then
+
+        elseif key == "hidden" then
              local bHidden = tobool(value)
-             
+
              -- Set manual hide flag to prevent other scripts from overriding
-             plateEntity.ManualHide = bHidden 
-             
+             plateEntity.ManualHide = bHidden
+
              plateEntity:SetNoDraw(bHidden)
-             
+
              -- Hide model and text completely if hidden
              if bHidden then
                 plateEntity:SetTextAlpha(0)
                 plateEntity:SetNotSolid(true)
                 -- Force render mode to ensure it stays invisible
-                plateEntity:SetRenderMode(RENDERMODE_NONE) 
+                plateEntity:SetRenderMode(RENDERMODE_NONE)
              else
                 -- Restore alpha and collision if shown
                 plateEntity:SetTextAlpha(plateEntity.GlideSavedAlpha or 255)
@@ -654,69 +699,104 @@ if SERVER then
 
         elseif key == "type" then
             if type(value) == "string" then
-                -- Look up default configuration data for this type
-                local typeData = GlideLicensePlates.PlateTypes[value] or {}
-                local allowedData = ALLOWED_PLATES_SERVER[value] -- Look up in hardcoded list
+                local allowedData = ALLOWED_PLATES[value]
 
                 if allowedData then -- Check if it's one of the allowed types
-                    plateEntity.PlateType = value
-                    
-                    if vehicle.SelectedPlateTypes then vehicle.SelectedPlateTypes[plateId] = value end
+                    -- No-op if the plate already uses this tool type: nothing to
+                    -- change, and it protects the text/defaults from being reset
+                    -- by redundant re-sends of the current value.
+                    if GetToolTypeForPlate(plateEntity) == value then return end
 
-                    -- Remove pattern on type change
-                    plateEntity.PlatePattern = ""
-                    if vehicle.SelectedPlatePatterns then vehicle.SelectedPlatePatterns[plateId] = "" end
-                    
-                    -- Force text regeneration to fulfill user request to generate a new plate text
-                    plateEntity:UpdatePlateText("") 
+                    -- Use the representative PlateTypes entry for this tool type,
+                    -- so defaults (font/scale/color/offset/pattern) come from real data.
+                    local typeId = allowedData.typeId
 
-                    -- 1. MODEL: Use the model from the hardcoded list
+                    plateEntity.PlateType = typeId
+                    if vehicle.SelectedPlateTypes then vehicle.SelectedPlateTypes[plateId] = typeId end
+
+                    -- Text handling on type change:
+                    --  * Manually-set text is ALWAYS preserved.
+                    --  * Random (auto) text: reuse the text of another auto plate that
+                    --    already uses this same type (so front/rear share one text);
+                    --    only generate a new one if there is no such plate.
+                    local customFlags = vehicle.PlateHasCustomText
+                    local hasCustomText = customFlags and customFlags[plateId]
+
+                    if not hasCustomText then
+                        local newText = nil
+
+                        if vehicle.LicensePlateEntities then
+                            for otherId, otherPlate in pairs(vehicle.LicensePlateEntities) do
+                                if otherId ~= plateId and IsValid(otherPlate)
+                                   and otherPlate.PlateType == typeId
+                                   and not (customFlags and customFlags[otherId]) then
+                                    local otherText = otherPlate:GetPlateText()
+                                    if otherText and otherText ~= "" then
+                                        newText = otherText
+                                        break
+                                    end
+                                end
+                            end
+                        end
+
+                        if not newText then
+                            -- No sibling to copy from: new text matching the new pattern
+                            newText = GlideLicensePlates.GeneratePlate(typeId)
+                        end
+
+                        plateEntity:UpdatePlateText(newText)
+                        if vehicle.LicensePlateTexts then vehicle.LicensePlateTexts[plateId] = newText end
+                    end
+
+                    -- 1. MODEL
                     if allowedData.model then
                         plateEntity:UpdatePlateModel(allowedData.model)
                     end
-                    
+
                     -- 2. SKIN: Do NOT change skin automatically on type change. (Can be customized later)
-                    
-                    -- 3. FONT: Set font to type default or global default
-                    local font = typeData.font or GlideLicensePlates.GetPlateFont(value)
+
+                    -- 3. FONT: type default (falls back to global default)
+                    local font = GlideLicensePlates.GetPlateFont(typeId)
                     plateEntity:SetPlateFont(font)
                     if vehicle.SelectedPlateFonts then vehicle.SelectedPlateFonts[plateId] = font end
-                    
-                    -- 4. SCALE: Set scale to type default or global default
-                    local scale = typeData.textscale or GlideLicensePlates.Config.DefaultScale or 0.5
+
+                    -- 4. SCALE: type default (falls back to global default)
+                    local scale = GlideLicensePlates.GetPlateScale(typeId)
                     plateEntity:SetPlateScale(scale)
                     if vehicle.SelectedPlateScales then vehicle.SelectedPlateScales[plateId] = scale end
 
-                    -- 5. COLOR: Set color to type default (if defined)
-                    if typeData.textcolor and type(typeData.textcolor) == "table" then
-                        local color = typeData.textcolor
-                        local r, g, b, a = color.r or 0, color.g or 0, color.b or 0, color.a or 255
-                        plateEntity:SetTextColor(Vector(r, g, b))
-                        plateEntity:SetTextAlpha(a)
-                        plateEntity.GlideSavedAlpha = a
-                    end
+                    -- 5. COLOR: type default
+                    local color = GlideLicensePlates.GetPlateTextColor(typeId)
+                    plateEntity:SetTextColor(Vector(color.r, color.g, color.b))
+                    plateEntity:SetTextAlpha(color.a)
+                    plateEntity.GlideSavedAlpha = color.a
 
-                    -- 6. POSITION (OFFSET): Set offset to type default (if defined)
-                    if typeData.textposition and type(typeData.textposition) == "Vector" then
-                        plateEntity:SetTextOffset(typeData.textposition)
-                    end
+                    -- 6. POSITION (OFFSET): type default
+                    plateEntity:SetTextOffset(GlideLicensePlates.GetPlateTextOffset(typeId))
                 end
             end
 
         elseif key == "scale" then
             if type(value) == "number" then
-                plateEntity:SetPlateScale(value) 
+                value = math.Clamp(value, MIN_SCALE, MAX_SCALE)
+                plateEntity:SetPlateScale(value)
                 if vehicle.SelectedPlateScales then vehicle.SelectedPlateScales[plateId] = value end
             end
 
         elseif key == "offset" then
             if type(value) == "Vector" then
+                value.x = math.Clamp(value.x, -MAX_OFFSET, MAX_OFFSET)
+                value.y = math.Clamp(value.y, -MAX_OFFSET, MAX_OFFSET)
+                value.z = math.Clamp(value.z, -MAX_OFFSET, MAX_OFFSET)
                 plateEntity:SetTextOffset(value)
             end
 
         elseif key == "color_alpha" then
             if type(value) == "table" then
-                local r, g, b, a = value.r, value.g, value.b, value.a
+                local r = math.Clamp(tonumber(value.r) or 0, 0, 255)
+                local g = math.Clamp(tonumber(value.g) or 0, 0, 255)
+                local b = math.Clamp(tonumber(value.b) or 0, 0, 255)
+                local a = math.Clamp(tonumber(value.a) or 255, 0, 255)
                 plateEntity:SetTextColor(Vector(r, g, b))
                 plateEntity:SetTextAlpha(a)
                 plateEntity.GlideSavedAlpha = a -- Save alpha for restoration if hidden flag is removed
@@ -724,18 +804,21 @@ if SERVER then
 
         elseif key == "skin" then
             if type(value) == "number" then
-                plateEntity:SetPlateSkin(value)
+                value = math.floor(math.Clamp(value, 0, MAX_SKIN))
+                plateEntity:UpdatePlateSkin(value)
                 if vehicle.SelectedPlateSkins then vehicle.SelectedPlateSkins[plateId] = value end
             end
-            
+
         elseif key == "font" then
             if type(value) == "string" and #value > 0 then
                 plateEntity:SetPlateFont(value)
+                if vehicle.SelectedPlateFonts then vehicle.SelectedPlateFonts[plateId] = value end
             end
         end
-        
-        if vehicle.UpdatePlateText then
-             -- (Vehicle specific function to mark dirty/update)
+
+        -- Persist the new state so duplicator/save data stays up to date
+        if GlideLicensePlates.SavePlateData then
+            GlideLicensePlates.SavePlateData(vehicle)
         end
     end)
 end
