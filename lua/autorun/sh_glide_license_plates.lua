@@ -283,10 +283,20 @@ local defaultPlateTypes = {
         model = usasmallplate,
         description = "Wyoming (   123456)",
         defaultFont = usatextfont,
-        defaultTextColor =  textcolorblack,
+        defaultTextColor =  textcolorblack, 
         defaultScale = 0.36,  
 		defaultTextOffset = Vector(0.2, 0, 0),
         defaultSkin = 9,
+    },		
+	["usautah"] = {
+        pattern = "ABC 123",
+        model = usasmallplate,
+        description = "Utah (ABC 123)",
+        defaultFont = usatextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = usatextscale,  
+		defaultTextOffset = Vector(0.2, 0, -0.3),
+        defaultSkin = 19,
     },	
 	
 --Europe	
@@ -559,6 +569,16 @@ local defaultPlateTypes = {
         defaultScale = europetextscale,  
 		defaultTextOffset = europetextposition2,
         defaultSkin = 22,
+    },		
+	["europecroatia"] = {
+        pattern = "AB  543-CD",
+        model = europelongplate,
+        description = "Croatia (AB 543-CD)",
+        defaultFont = mercosureuropetextfont,
+        defaultTextColor =  textcolorblack,
+        defaultScale = europetextscale,  
+		defaultTextOffset = europetextposition2,
+        defaultSkin = 23,
     },	
 --Fictional
 	--GTA SA
@@ -679,7 +699,8 @@ local defaultPlateGroups = {
 	"usaoklahomav2", 
 	"usatexas", 
 	"usawisconsin", 
-	"usawyoming" 
+	"usawyoming", 
+	"usautah" 
 	},
 	
     ["mercosurplates"] = 
@@ -726,6 +747,7 @@ local defaultPlateGroups = {
 	"europespain", 
 	"europeswedenv1", 
 	"europeswedenv2", 
+	"europecroatia"
 	},
 	
     ["gtasaplates"] = 
