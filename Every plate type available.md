@@ -33,7 +33,7 @@
 | "usatexas"      | Texas       | "AB1  C234" |
 | "usawisconsin"  | Wisconsin   | "ABC-1234"  |
 | "usawyoming"    | Wyoming     | "   123456" |
-
+| "usautah"       | Utah        | "ABC 123  " |
 ```
 ### Europe 
 
@@ -66,7 +66,7 @@
 | "europespain"        | Spain          | "1234 ABC"    |
 | "europeswedenv1"     | Sweden V1      | "ABC 123"     |
 | "europeswedenv2"     | Sweden V2      | "ABC 12D"     |
-
+| "europecroatia"      | Croatia        | "AB  543-CD"  |
 ```
 
 ### GTA SA, V & IV 
