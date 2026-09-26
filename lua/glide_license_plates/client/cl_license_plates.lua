@@ -123,15 +123,25 @@ local function DrawPlateTextImproved(plateEntity)
     local parentVehicle = plateEntity:GetParentVehicle()
     if not IsValid(parentVehicle) then return end
 
-    -- Get base position and angles (local to vehicle)
-    local basePos = plateEntity:GetBasePosition()
+    -- Get base angles and model rotation (local to vehicle)
     local baseAng = plateEntity:GetBaseAngles()
+    local modelRot = plateEntity:GetModelRotation()
 
-    if not basePos or not baseAng then return end
+    if not baseAng or not modelRot then return end
 
-    -- Convert local coordinates to world coordinates
-    local worldPos = parentVehicle:LocalToWorld(basePos)
-    local textAngles = parentVehicle:LocalToWorldAngles(baseAng)
+    -- Text angles relative to the plate entity (the entity is rotated by
+    -- BaseAngles + ModelRotation, the text only by BaseAngles). Cached per plate.
+    if plateEntity._textRelBase ~= baseAng or plateEntity._textRelRot ~= modelRot then
+        local _, relAng = WorldToLocal(vector_origin, baseAng, vector_origin, baseAng + modelRot)
+        plateEntity._textRelAng = relAng
+        plateEntity._textRelBase = baseAng
+        plateEntity._textRelRot = modelRot
+    end
+
+    -- World transform taken from the plate entity itself, so the text also
+    -- follows plates attached to a bone (e.g. a trunk lid)
+    local worldPos = plateEntity:GetPos()
+    local textAngles = plateEntity:LocalToWorldAngles(plateEntity._textRelAng)
 
     -- Cache lighting computation (max once every 0.2s per plate)
     local curTime = CurTime()

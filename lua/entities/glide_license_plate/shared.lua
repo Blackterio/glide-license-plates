@@ -239,6 +239,22 @@ if CLIENT then
 
         self:DrawModel()
     end
+
+    local nudgePos = Vector()
+
+    -- Plates that follow a bone: the engine only refreshes their position when
+    -- the vehicle moves, not when a client-side animation (door pose parameter)
+    -- moves the bone. Changing the local pos forces the refresh every frame.
+    function ENT:Think()
+        if not self:IsEffectActive(EF_FOLLOWBONE) then return end
+
+        local localPos = self:GetLocalPos()
+        nudgePos:Set(localPos)
+        nudgePos.x = nudgePos.x + 0.01
+
+        self:SetLocalPos(nudgePos)
+        self:SetLocalPos(localPos)
+    end
 end
 
 if SERVER then
@@ -258,18 +274,76 @@ if SERVER then
         end
     end
 
+    -- Bone this plate must follow: an entry of LicensePlateAdvancedConfigs
+    -- with this plate's id and a `bone` name (always active, no bodygroup).
+    local function GetFollowBoneName(vehicle, plateId)
+        local configs = vehicle.LicensePlateAdvancedConfigs
+        if not configs or not plateId then return nil end
+
+        for _, config in ipairs(configs) do
+            if config.id == plateId and isstring(config.bone) and config.bone ~= "" then
+                return config.bone
+            end
+        end
+    end
+
     -- Keep the plate attached to the vehicle. Parenting makes the engine move
     -- (and transmit) the plate with the vehicle: no per-tick updates needed.
+    -- With a `bone` config the plate follows that bone (FollowBone). Positions
+    -- stay in vehicle space (bone at rest) and are converted to bone space here.
     function ENT:UpdatePosition()
         local vehicle = self:GetParentVehicle()
         if not IsValid(vehicle) then return end
 
-        if self:GetParent() ~= vehicle then
+        local localPos = self:GetBasePosition()
+        local localAng = self:GetBaseAngles() + self:GetModelRotation()
+
+        local boneName = GetFollowBoneName(vehicle, self.PlateId)
+        local boneId = boneName and vehicle:LookupBone(boneName)
+
+        if boneId and self.FollowBoneId ~= boneId then
+            -- Bone transform relative to the vehicle, cached once. Moving parts are
+            -- animated client-side, so on the server the bone is at its rest pose.
+            local matrix = vehicle:GetBoneMatrix(boneId)
+            local restPos, restAng
+            if matrix then
+                restPos, restAng = WorldToLocal(matrix:GetTranslation(), matrix:GetAngles(), vehicle:GetPos(), vehicle:GetAngles())
+            end
+
+            -- GetBoneMatrix can return garbage serverside on some models
+            if restPos and restPos:Length() <= vehicle:BoundingRadius() * 2 then
+                self.BoneRestPos, self.BoneRestAng = restPos, restAng
+                self:FollowBone(vehicle, boneId)
+                self.FollowBoneId = boneId
+                self.FollowBoneName = boneName
+            else
+                boneId = nil
+            end
+        end
+
+        if boneName and not boneId and not self.BoneWarned then
+            self.BoneWarned = true
+            print("[GLIDE License Plates] Can't follow bone '" .. boneName .. "' on " .. vehicle:GetModel() .. ", plate '" .. tostring(self.PlateId) .. "' stays on the vehicle.")
+        end
+
+        if boneId then
+            local bonePos, boneAng = WorldToLocal(localPos, localAng, self.BoneRestPos, self.BoneRestAng)
+            self:SetLocalPos(bonePos)
+            self:SetLocalAngles(boneAng)
+            return
+        end
+
+        if self.FollowBoneId then
+            -- Detach from the bone: SetParent without attachment keeps the bone index
+            self:FollowBone(NULL, 0)
+            self:SetParent(vehicle, 0)
+            self.FollowBoneId, self.FollowBoneName = nil, nil
+        elseif self:GetParent() ~= vehicle then
             self:SetParent(vehicle)
         end
 
-        self:SetLocalPos(self:GetBasePosition())
-        self:SetLocalAngles(self:GetBaseAngles() + self:GetModelRotation())
+        self:SetLocalPos(localPos)
+        self:SetLocalAngles(localAng)
     end
 
     -- Set base position and angles (relative to vehicle)

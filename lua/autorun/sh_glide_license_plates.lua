@@ -573,7 +573,7 @@ local defaultPlateTypes = {
 	["europecroatia"] = {
         pattern = "AB  543-CD",
         model = europelongplate,
-        description = "Croatia (AB 543-CD)",
+        description = "Croatia (AB  543-CD)",
         defaultFont = mercosureuropetextfont,
         defaultTextColor =  textcolorblack,
         defaultScale = europetextscale,  
@@ -1447,6 +1447,82 @@ if SERVER then
         return class == "base_glide" or scripted_ents.IsBasedOn(class, "base_glide")
     end
     
+    -- Max LicensePlateAdvancedConfigs entries (bodygroup rules + bone) per plate
+    local MAX_ADVANCED_PER_PLATE = 16
+    local MAX_TEXT_OFFSET = 10
+
+    local function ClampVector(vec, limit)
+        return Vector(
+            math.Clamp(vec.x, -limit, limit),
+            math.Clamp(vec.y, -limit, limit),
+            math.Clamp(vec.z, -limit, limit)
+        )
+    end
+
+    local function NormalizeAngle(ang)
+        return Angle(math.NormalizeAngle(ang.p), math.NormalizeAngle(ang.y), math.NormalizeAngle(ang.r))
+    end
+
+    -- Validates a LicensePlateAdvancedConfigs list coming from the plate editor
+    -- tool or from dupe data (both player-controlled). Returns a clean copy:
+    -- unknown keys dropped, bodygroups and bones checked against the vehicle
+    -- model, positions clamped to the vehicle size.
+    function GlideLicensePlates.SanitizeAdvancedConfigs(vehicle, list)
+        local clean = {}
+        if not IsValid(vehicle) or type(list) ~= "table" then return clean end
+
+        local maxDist = math.max(vehicle:BoundingRadius() * 2, 50)
+        local perPlate = {}
+
+        for _, config in ipairs(list) do
+            if type(config) ~= "table" then continue end
+
+            local id = config.id
+            if type(id) ~= "string" or id == "" or #id > 64 then continue end
+
+            perPlate[id] = (perPlate[id] or 0) + 1
+            if perPlate[id] > MAX_ADVANCED_PER_PLATE then continue end
+
+            local entry = { id = id }
+
+            if isstring(config.bone) and config.bone ~= "" and #config.bone <= 64
+               and vehicle:LookupBone(config.bone) then
+                entry.bone = config.bone
+            end
+
+            local bg = config.bodygroup
+            if type(bg) == "table" and tonumber(bg[1]) and tonumber(bg[2]) then
+                local index = math.floor(tonumber(bg[1]))
+                local sub = math.floor(tonumber(bg[2]))
+
+                if index >= 0 and index < vehicle:GetNumBodyGroups()
+                   and sub >= 0 and sub < vehicle:GetBodygroupCount(index) then
+                    entry.bodygroup = { index, sub }
+
+                    if config.platetoggle == true then
+                        entry.platetoggle = true
+                    else
+                        if isvector(config.newplateposition) then
+                            entry.newplateposition = ClampVector(config.newplateposition, maxDist)
+                        end
+                        if isangle(config.newplateangles) then
+                            entry.newplateangles = NormalizeAngle(config.newplateangles)
+                        end
+                        if isangle(config.newplatemodelRotation) then
+                            entry.newplatemodelRotation = NormalizeAngle(config.newplatemodelRotation)
+                        end
+                    end
+                end
+            end
+
+            if entry.bone or entry.bodygroup then
+                table.insert(clean, entry)
+            end
+        end
+
+        return clean
+    end
+
     -- Enhanced plate data storage that includes colors, scales and skins
     local function SaveCompletePlateData(vehicle)
         if not IsValid(vehicle) or not vehicle.IsGlideVehicle then return false end
@@ -1496,11 +1572,24 @@ if SERVER then
         -- Save the actual colors from the physical plate entities
         if vehicle.LicensePlateEntities and not table.IsEmpty(vehicle.LicensePlateEntities) then
             plateData.actualTextColors = {}
+            plateData.textOffsets = {}
+            plateData.manualHide = {}
             for plateId, plateEntity in pairs(vehicle.LicensePlateEntities) do
                 if IsValid(plateEntity) then
                     -- Get color from the actual entity
                     local colorVector = plateEntity:GetTextColor()
                     local alpha = plateEntity:GetTextAlpha()
+
+                    -- Hidden plates have alpha 0: save the alpha they get back when shown
+                    if plateEntity:GetNoDraw() then
+                        alpha = plateEntity.GlideSavedAlpha or 255
+                    end
+
+                    plateData.textOffsets[plateId] = plateEntity:GetTextOffset()
+
+                    if plateEntity.ManualHide then
+                        plateData.manualHide[plateId] = true
+                    end
                     
                     if colorVector then
                         plateData.actualTextColors[plateId] = {
@@ -1515,9 +1604,9 @@ if SERVER then
             end
         end
         
-        -- Save configurations (for reference)
-        if vehicle.LicensePlateConfigs then
-            plateData.plateConfigs = table.Copy(vehicle.LicensePlateConfigs)
+        -- Save advanced configs (bodygroup rules / bone) edited with the tool
+        if vehicle.PlateAdvancedEdited and vehicle.LicensePlateAdvancedConfigs then
+            plateData.advancedConfigs = table.Copy(vehicle.LicensePlateAdvancedConfigs)
             hasData = true
         end
         
@@ -1569,6 +1658,13 @@ if SERVER then
             vehicle.PlateHasCustomText = table.Copy(plateData.plateHasCustomText)
         end
         
+        -- Restore tool-edited advanced configs BEFORE creating the plates, so
+        -- bone and bodygroup rules already apply when they get positioned
+        if type(plateData.advancedConfigs) == "table" then
+            vehicle.LicensePlateAdvancedConfigs = GlideLicensePlates.SanitizeAdvancedConfigs(vehicle, plateData.advancedConfigs)
+            vehicle.PlateAdvancedEdited = true
+        end
+
         -- Store restored colors for use during creation
         if plateData.actualTextColors then
             vehicle._RestoredColors = table.Copy(plateData.actualTextColors)
@@ -1612,6 +1708,12 @@ if SERVER then
 				
 				-- Determine the text offset for this plate
                 local plateTextOffset = GlideLicensePlates.GetPlateTextOffset(plateType, config.textOffset)
+
+                -- Text offset edited with the tool
+                local savedOffset = type(plateData.textOffsets) == "table" and plateData.textOffsets[plateId]
+                if isvector(savedOffset) then
+                    plateTextOffset = ClampVector(savedOffset, MAX_TEXT_OFFSET)
+                end
                 
                 -- Create plate entity
                 local plateEntity = ents.Create("glide_license_plate")
@@ -1666,6 +1768,15 @@ if SERVER then
                 plateEntity.TextColorB = textColor.b
                 plateEntity.TextColorA = textColor.a
 				plateEntity.TextOffset = plateTextOffset				
+
+                -- Hidden with the tool
+                if type(plateData.manualHide) == "table" and plateData.manualHide[plateId] then
+                    plateEntity.ManualHide = true
+                    plateEntity.GlideSavedAlpha = textColor.a
+                    plateEntity:SetNoDraw(true)
+                    plateEntity:SetTextAlpha(0)
+                    plateEntity:SetRenderMode(RENDERMODE_NONE)
+                end
                 
                 -- Configure transform after spawn
                 timer.Simple(0.1, function()

@@ -212,6 +212,18 @@ local function CheckBodygroupChanges(vehicle)
     end
 end
 
+-- Re-evaluate a vehicle right away after its configs change at runtime
+-- (plate editor tool, dupe restore) instead of waiting for the polling loop.
+if GlideLicensePlates then
+    function GlideLicensePlates.RefreshAdvancedState(vehicle)
+        if not IsValid(vehicle) then return end
+
+        vehicleBodygroupCache[vehicle] = nil
+        CheckBodygroupChanges(vehicle) -- re-caches the referenced bodygroups
+        UpdateVehiclePlatesState(vehicle)
+    end
+end
+
 -- Smart Initialization (Retry until ready)
 -- This fixes the issue of plates not appearing correctly on quick respawns
 hook.Add("OnEntityCreated", "GlideLicensePlates.BodygroupInit", function(ent)
@@ -266,13 +278,23 @@ hook.Add("OnEntityCreated", "GlideLicensePlates.BodygroupVehicleInit", function(
     end)
 end)
 
--- Consolidated timer: change detection + consistency check every 3s
-timer.Create("GlideLicensePlates_BodygroupPolling", 3, 0, function()
+-- Change detection every 0.5s: cheap (a few GetBodygroup calls per vehicle),
+-- updates the plates only when a referenced bodygroup changed
+timer.Create("GlideLicensePlates_BodygroupPolling", 0.5, 0, function()
     if not GlideLicensePlates or not GlideLicensePlates.ActivePlates then return end
     for vehicle, _ in pairs(GlideLicensePlates.ActivePlates) do
         if IsValid(vehicle) and GetBodygroupConfigs(vehicle) then
-            CheckBodygroupChanges(vehicle)    -- detects changes, updates on change
-            UpdateVehiclePlatesState(vehicle) -- consistency check (watchdog)
+            CheckBodygroupChanges(vehicle)
+        end
+    end
+end)
+
+-- Consistency check (watchdog) every 3s
+timer.Create("GlideLicensePlates_BodygroupWatchdog", 3, 0, function()
+    if not GlideLicensePlates or not GlideLicensePlates.ActivePlates then return end
+    for vehicle, _ in pairs(GlideLicensePlates.ActivePlates) do
+        if IsValid(vehicle) and GetBodygroupConfigs(vehicle) then
+            UpdateVehiclePlatesState(vehicle)
         end
     end
 end)

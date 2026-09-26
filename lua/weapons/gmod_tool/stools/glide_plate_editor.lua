@@ -72,6 +72,8 @@ local MAX_OFFSET = 10
 if SERVER then
     util.AddNetworkString("GlidePlateEditor_Select")
     util.AddNetworkString("GlidePlateEditor_Update")
+    util.AddNetworkString("GlidePlateEditor_Advanced")
+    util.AddNetworkString("GlidePlateEditor_Preview")
 end
 
 -- Shared variable (declared once at top of file)
@@ -85,6 +87,36 @@ local function GetToolTypeForPlate(plateEnt)
         if data.model == model then return key end
     end
     return nil
+end
+
+-- Advanced configs (bodygroup rules / bone) of one plate, in the compact form
+-- the tool panel edits. Missing move values are filled client-side.
+local function GetPlateAdvancedData(vehicle, plateId)
+    local adv = { rules = {} }
+    local configs = vehicle.LicensePlateAdvancedConfigs or vehicle.LicensePlateBodygroupConfigs
+    if not istable(configs) then return adv end
+
+    for _, config in ipairs(configs) do
+        if config.id ~= plateId then continue end
+
+        if isstring(config.bone) and config.bone ~= "" then
+            adv.bone = config.bone
+        end
+
+        local bg = config.bodygroup
+        if istable(bg) and #bg >= 2 then
+            table.insert(adv.rules, {
+                bg = bg[1],
+                sub = bg[2],
+                hide = config.platetoggle == true,
+                pos = config.newplateposition,
+                ang = config.newplateangles,
+                rot = config.newplatemodelRotation
+            })
+        end
+    end
+
+    return adv
 end
 
 -- Called when the user Left Clicks
@@ -109,10 +141,23 @@ function TOOL:LeftClick(trace)
     local platesData = {}
     local hasPlates = false
 
+    -- Plate closest to the clicked point: preselected in the panel
+    local nearestId, nearestDist = "", math.huge
+
     if ent.LicensePlateEntities and next(ent.LicensePlateEntities) then
         for id, plateEnt in pairs(ent.LicensePlateEntities) do
             if IsValid(plateEnt) and plateEnt:GetClass() == "glide_license_plate" then
                 hasPlates = true
+
+                if trace.HitPos then
+                    local dist = plateEnt:GetPos():DistToSqr(trace.HitPos)
+                    if dist < nearestDist then
+                        nearestId, nearestDist = id, dist
+                    end
+                end
+
+                -- Transform without bodygroup rules applied (start point for "move" rules)
+                local original = plateEnt.BodygroupOriginalData
                 platesData[id] = {
                     text = plateEnt:GetPlateText(),
                     type = GetToolTypeForPlate(plateEnt) or "mercosur plate",
@@ -123,7 +168,11 @@ function TOOL:LeftClick(trace)
                     alpha = plateEnt:GetTextAlpha(),
                     offset = plateEnt:GetTextOffset(), -- Vector
                     model = plateEnt:GetModel(),
-                    hidden = plateEnt:GetNoDraw()
+                    hidden = plateEnt.ManualHide == true, -- bodygroup rules hide it too: only the manual hide counts
+                    advanced = GetPlateAdvancedData(ent, id),
+                    defaultPos = original and original.BasePosition or plateEnt:GetBasePosition(),
+                    defaultAng = original and original.BaseAngles or plateEnt:GetBaseAngles(),
+                    defaultRot = original and original.ModelRotation or plateEnt:GetModelRotation()
                 }
             end
         end
@@ -143,6 +192,7 @@ function TOOL:LeftClick(trace)
     net.Start("GlidePlateEditor_Select")
     net.WriteEntity(targetEnt)
     net.WriteTable(platesData)
+    net.WriteString(nearestId)
     net.Send(ply)
 
     return true
@@ -161,6 +211,7 @@ function TOOL:RightClick(trace)
     net.Start("GlidePlateEditor_Select")
     net.WriteEntity(NULL)
     net.WriteTable({})
+    net.WriteString("")
     net.Send(ply)
 
     return true
@@ -185,6 +236,7 @@ if CLIENT then
     local EditorPanel = nil
     local IgnoreConVarChanges = false -- Flag to prevent loop when syncing selection
     local RebuildControlPanel -- forward declaration (kept local, defined below)
+    local GetSortedPlateIds -- forward declaration (defined below)
 
     -- Helper to get and prioritize fonts
     local function GetPrioritizedFonts(currentFont)
@@ -277,35 +329,80 @@ if CLIENT then
         IgnoreConVarChanges = false
     end
 
-    -- Function to send updates to server
-    local function SendUpdate(key, value)
+    -- Plate IDs in alphabetical order (pairs() order is random)
+    function GetSortedPlateIds()
+        local ids = table.GetKeys(CurrentPlatesData)
+        table.sort(ids)
+        return ids
+    end
+
+    -- Function to send updates to server. `vehicle`/`plateId` default to the
+    -- current selection (throttled sends pass the ones captured when queued).
+    local function SendUpdate(key, value, vehicle, plateId)
         if IgnoreConVarChanges then return end
-        if not IsValid(CurrentSelection) or not SelectedPlateID then return end
+
+        vehicle = vehicle or CurrentSelection
+        plateId = plateId or SelectedPlateID
+        if not IsValid(vehicle) or not plateId then return end
 
         net.Start("GlidePlateEditor_Update")
-        net.WriteEntity(CurrentSelection)
-        net.WriteString(SelectedPlateID)
+        net.WriteEntity(vehicle)
+        net.WriteString(plateId)
         net.WriteString(key)
         net.WriteType(value)
         net.SendToServer()
 
-        -- Update local cache to match
-        if CurrentPlatesData[SelectedPlateID] then
+        -- Update local cache to match (only while that vehicle is still selected)
+        local cache = vehicle == CurrentSelection and CurrentPlatesData[plateId]
+        if cache then
             if key == "color_alpha" then
                 -- Color_alpha sends a table {r, g, b, a}
-                CurrentPlatesData[SelectedPlateID].color = Vector(value.r, value.g, value.b)
-                CurrentPlatesData[SelectedPlateID].alpha = value.a
+                cache.color = Vector(value.r, value.g, value.b)
+                cache.alpha = value.a
             elseif key == "offset" then
                  -- Offset sends a Vector
-                 CurrentPlatesData[SelectedPlateID].offset = value
+                 cache.offset = value
             elseif key == "type" then
                 -- Logic for Type change side effects is handled on Server,
                 -- but we update local type reference to keep UI consistent
-                CurrentPlatesData[SelectedPlateID].type = value
+                cache.type = value
             else
-                CurrentPlatesData[SelectedPlateID][key] = value
+                cache[key] = value
             end
         end
+    end
+
+    -- Continuous controls (sliders, color mixer) change every frame while
+    -- dragged, and the server accepts 30 updates/s per player: sends are
+    -- spaced SEND_INTERVAL apart per plate and control, and the LAST value is
+    -- always sent. Changes in the same frame (a preset load) become one send.
+    local SEND_INTERVAL = 0.1
+    local lastSendTime, pendingSend = {}, {}
+
+    local function ThrottledSend(key, send)
+        pendingSend[key] = send
+
+        local timerName = "GlidePlateEditor_Throttle_" .. key
+        if timer.Exists(timerName) then return end
+
+        local delay = math.max(0, (lastSendTime[key] or 0) + SEND_INTERVAL - RealTime())
+        timer.Create(timerName, delay, 1, function()
+            local fn = pendingSend[key]
+            pendingSend[key] = nil
+            lastSendTime[key] = RealTime()
+            if fn then fn() end
+        end)
+    end
+
+    -- Throttled SendUpdate. Value, vehicle and plate are captured now, so
+    -- switching the selected plate can't redirect a pending update.
+    local function QueueUpdate(key, value)
+        local vehicle, plateId = CurrentSelection, SelectedPlateID
+        if not IsValid(vehicle) or not plateId then return end
+
+        ThrottledSend(key .. "_" .. vehicle:EntIndex() .. "_" .. plateId, function()
+            SendUpdate(key, value, vehicle, plateId)
+        end)
     end
 
     -- --------------------------------------------------------
@@ -321,7 +418,11 @@ if CLIENT then
             if typeConversion == "number" then val = tonumber(new_value) end
             if typeConversion == "bool" then val = tobool(new_value) end
 
-            SendUpdate(key, val)
+            if key == "scale" then
+                QueueUpdate(key, val) -- slider
+            else
+                SendUpdate(key, val)
+            end
 
             -- If plate type changes, we need to rebuild UI to update available fonts/defaults if necessary
             if key == "type" and IsValid(EditorPanel) then
@@ -339,34 +440,30 @@ if CLIENT then
     AddCallback("glide_plate_editor_hidden", "hidden", "bool")
 
     -- Special handling for Vectors (Offset).
-    -- Coalesced with a 0s timer: changing several components in the same frame
-    -- (e.g. a preset load) sends ONE message with the final vector, instead of
-    -- three messages with partially-updated components.
+    -- Throttled: changing several components in the same frame (e.g. a preset
+    -- load) sends ONE message with the final vector, instead of three messages
+    -- with partially-updated components.
     local function UpdateOffset()
         if IgnoreConVarChanges then return end
-        timer.Create("GlidePlateEditor_SyncOffset", 0, 1, function()
-            SendUpdate("offset", Vector(
-                GetConVar("glide_plate_editor_offset_x"):GetFloat(),
-                GetConVar("glide_plate_editor_offset_y"):GetFloat(),
-                GetConVar("glide_plate_editor_offset_z"):GetFloat()
-            ))
-        end)
+        QueueUpdate("offset", Vector(
+            GetConVar("glide_plate_editor_offset_x"):GetFloat(),
+            GetConVar("glide_plate_editor_offset_y"):GetFloat(),
+            GetConVar("glide_plate_editor_offset_z"):GetFloat()
+        ))
     end
     cvars.AddChangeCallback("glide_plate_editor_offset_x", UpdateOffset, "GlideSyncOSX")
     cvars.AddChangeCallback("glide_plate_editor_offset_y", UpdateOffset, "GlideSyncOSY")
     cvars.AddChangeCallback("glide_plate_editor_offset_z", UpdateOffset, "GlideSyncOSZ")
 
-    -- Special handling for Color (coalesced like the offset)
+    -- Special handling for Color (throttled like the offset)
     local function UpdateColor()
         if IgnoreConVarChanges then return end
-        timer.Create("GlidePlateEditor_SyncColor", 0, 1, function()
-            SendUpdate("color_alpha", {
-                r = GetConVar("glide_plate_editor_color_r"):GetInt(),
-                g = GetConVar("glide_plate_editor_color_g"):GetInt(),
-                b = GetConVar("glide_plate_editor_color_b"):GetInt(),
-                a = GetConVar("glide_plate_editor_color_a"):GetInt()
-            })
-        end)
+        QueueUpdate("color_alpha", {
+            r = GetConVar("glide_plate_editor_color_r"):GetInt(),
+            g = GetConVar("glide_plate_editor_color_g"):GetInt(),
+            b = GetConVar("glide_plate_editor_color_b"):GetInt(),
+            a = GetConVar("glide_plate_editor_color_a"):GetInt()
+        })
     end
     cvars.AddChangeCallback("glide_plate_editor_color_r", UpdateColor, "GlideSyncCR")
     cvars.AddChangeCallback("glide_plate_editor_color_g", UpdateColor, "GlideSyncCG")
@@ -374,17 +471,232 @@ if CLIENT then
     cvars.AddChangeCallback("glide_plate_editor_color_a", UpdateColor, "GlideSyncCA")
 
 
+    -- Advanced configuration (bodygroup rules / bone) of the selected plate.
+    -- Not bound to ConVars: the whole plate state is sent in one message,
+    -- throttled so dragging a slider doesn't flood the server.
+    local MAX_RULES = 15 -- + the bone entry = server limit of 16 per plate
+
+    local function SendAdvanced(vehicle, plateId, adv)
+        if not IsValid(vehicle) then return end
+
+        net.Start("GlidePlateEditor_Advanced")
+        net.WriteEntity(vehicle)
+        net.WriteString(plateId)
+        net.WriteString(adv.bone or "")
+        net.WriteUInt(#adv.rules, 5)
+
+        for _, rule in ipairs(adv.rules) do
+            net.WriteUInt(rule.bg, 8)
+            net.WriteUInt(rule.sub, 8)
+            net.WriteBool(rule.hide)
+
+            if not rule.hide then
+                net.WriteVector(rule.pos)
+                net.WriteAngle(rule.ang)
+                net.WriteAngle(rule.rot)
+            end
+        end
+
+        net.SendToServer()
+    end
+
+    -- The plate's own state table is captured (it's edited in place by the
+    -- panel), so the send always carries that plate's latest state
+    local function QueueAdvancedSend()
+        local vehicle, plateId = CurrentSelection, SelectedPlateID
+        local data = plateId and CurrentPlatesData[plateId]
+        if not IsValid(vehicle) or not data or not data.advanced then return end
+
+        local adv = data.advanced
+        ThrottledSend("advanced_" .. vehicle:EntIndex() .. "_" .. plateId, function()
+            SendAdvanced(vehicle, plateId, adv)
+        end)
+    end
+
+    -- "Move" rules always carry the three values, starting from the plate's
+    -- default transform (never from the vehicle origin)
+    local function FillMoveValues(rule, data)
+        rule.pos = rule.pos or Vector(data.defaultPos or vector_origin)
+        rule.ang = rule.ang or Angle(data.defaultAng or angle_zero)
+        rule.rot = rule.rot or Angle(data.defaultRot or angle_zero)
+    end
+
+    local function FindBodygroup(bodygroups, id)
+        for _, bg in ipairs(bodygroups) do
+            if bg.id == id then return bg end
+        end
+    end
+
+    local function AddAxisSliders(form, labelKey, value, axes, min, max, decimals)
+        local label = language.GetPhrase(labelKey)
+
+        for i, axis in ipairs(axes) do
+            local slider = form:NumSlider(label .. " " .. axis, nil, min, max, decimals)
+            slider:SetValue(value[i])
+            slider.OnValueChanged = function(_, newValue)
+                value[i] = newValue
+                QueueAdvancedSend()
+            end
+        end
+    end
+
+    local function BuildAdvancedSection(panel, data)
+        local adv = data.advanced
+        local vehicle = CurrentSelection
+        if not adv or not IsValid(vehicle) then return end
+
+        local cat = vgui.Create("DCollapsibleCategory", panel)
+        cat:SetLabel(language.GetPhrase("glide_pe_header_advanced"))
+        cat:SetExpanded(true)
+        panel:AddItem(cat)
+
+        local form = vgui.Create("DForm", cat)
+        form:SetName("")
+        cat:SetContents(form)
+
+        -- Bone the plate follows
+        local boneCombo = form:ComboBox(language.GetPhrase("glide_pe_bone"))
+        boneCombo:SetSortItems(false)
+        boneCombo:AddChoice(language.GetPhrase("glide_pe_none"), "", not adv.bone)
+
+        for i = 0, vehicle:GetBoneCount() - 1 do
+            local name = vehicle:GetBoneName(i)
+            if name and name ~= "__INVALIDBONE__" then
+                boneCombo:AddChoice(name, name, name == adv.bone)
+            end
+        end
+
+        boneCombo.OnSelect = function(_, _, _, value)
+            adv.bone = value ~= "" and value or nil
+            QueueAdvancedSend()
+        end
+
+        -- Bodygroup rules (only bodygroups with more than one submodel)
+        local bodygroups = {}
+        for _, bg in ipairs(vehicle:GetBodyGroups() or {}) do
+            if bg.num > 1 then table.insert(bodygroups, bg) end
+        end
+
+        local radius = math.ceil(vehicle:BoundingRadius())
+
+        for index, rule in ipairs(adv.rules) do
+            local ruleForm = vgui.Create("DForm", form)
+            ruleForm:SetName(language.GetPhrase("glide_pe_rule") .. " " .. index)
+            form:AddItem(ruleForm)
+
+            local bgCombo = ruleForm:ComboBox(language.GetPhrase("glide_pe_bodygroup"))
+            bgCombo:SetSortItems(false)
+            for _, bg in ipairs(bodygroups) do
+                bgCombo:AddChoice(bg.id .. " - " .. bg.name, bg.id, bg.id == rule.bg)
+            end
+
+            bgCombo.OnSelect = function(_, _, _, value)
+                rule.bg = value
+                rule.sub = 1
+                QueueAdvancedSend()
+                RebuildControlPanel(panel)
+            end
+
+            local subCombo = ruleForm:ComboBox(language.GetPhrase("glide_pe_submodel"))
+            subCombo:SetSortItems(false)
+            local bgData = FindBodygroup(bodygroups, rule.bg)
+            if bgData then
+                for sub = 0, bgData.num - 1 do
+                    local subName = bgData.submodels and bgData.submodels[sub] or ""
+                    subCombo:AddChoice(sub .. " - " .. subName, sub, sub == rule.sub)
+                end
+            end
+
+            subCombo.OnSelect = function(_, _, _, value)
+                rule.sub = value
+                QueueAdvancedSend()
+            end
+
+            local actionCombo = ruleForm:ComboBox(language.GetPhrase("glide_pe_action"))
+            actionCombo:SetSortItems(false)
+            actionCombo:AddChoice(language.GetPhrase("glide_pe_action_hide"), true, rule.hide)
+            actionCombo:AddChoice(language.GetPhrase("glide_pe_action_move"), false, not rule.hide)
+
+            actionCombo.OnSelect = function(_, _, _, value)
+                rule.hide = value
+                if not rule.hide then FillMoveValues(rule, data) end
+                QueueAdvancedSend()
+                RebuildControlPanel(panel)
+            end
+
+            if not rule.hide then
+                FillMoveValues(rule, data)
+                AddAxisSliders(ruleForm, "glide_pe_new_pos", rule.pos, { "X", "Y", "Z" }, -radius, radius, 2)
+                AddAxisSliders(ruleForm, "glide_pe_new_ang", rule.ang, { "P", "Y", "R" }, -180, 180, 1)
+                AddAxisSliders(ruleForm, "glide_pe_new_rot", rule.rot, { "P", "Y", "R" }, -180, 180, 1)
+            end
+
+            -- Toggles the vehicle bodygroup between this submodel and 0
+            local previewButton = ruleForm:Button(language.GetPhrase("glide_pe_preview"))
+            previewButton.DoClick = function()
+                if not IsValid(CurrentSelection) or not SelectedPlateID then return end
+
+                net.Start("GlidePlateEditor_Preview")
+                net.WriteEntity(CurrentSelection)
+                net.WriteString(SelectedPlateID)
+                net.WriteUInt(rule.bg, 8)
+                net.WriteUInt(rule.sub, 8)
+                net.SendToServer()
+            end
+
+            -- Green + different text while the vehicle shows this rule's state
+            -- (also reflects bodygroup changes made with other tools)
+            local previewLabel = language.GetPhrase("glide_pe_preview")
+            local previewActiveLabel = language.GetPhrase("glide_pe_preview_active")
+
+            previewButton.Think = function(self)
+                local active = IsValid(CurrentSelection) and CurrentSelection:GetBodygroup(rule.bg) == rule.sub
+                if self.PreviewActive ~= active then
+                    self.PreviewActive = active
+                    self:SetText(active and previewActiveLabel or previewLabel)
+                end
+            end
+
+            previewButton.Paint = function(self, w, h)
+                derma.SkinHook("Paint", "Button", self, w, h)
+                if self.PreviewActive then
+                    surface.SetDrawColor(60, 200, 90, 110)
+                    surface.DrawRect(0, 0, w, h)
+                end
+            end
+
+            local removeButton = ruleForm:Button(language.GetPhrase("glide_pe_rule_remove"))
+            removeButton.DoClick = function()
+                table.remove(adv.rules, index)
+                QueueAdvancedSend()
+                RebuildControlPanel(panel)
+            end
+        end
+
+        local addButton = form:Button(language.GetPhrase("glide_pe_rule_add"))
+        addButton:SetEnabled(#adv.rules < MAX_RULES and bodygroups[1] ~= nil)
+        addButton.DoClick = function()
+            if #adv.rules >= MAX_RULES or not bodygroups[1] then return end
+
+            table.insert(adv.rules, { bg = bodygroups[1].id, sub = 1, hide = true })
+            QueueAdvancedSend()
+            RebuildControlPanel(panel)
+        end
+    end
+
     -- Receive Selection from Server
     net.Receive("GlidePlateEditor_Select", function()
         CurrentSelection = net.ReadEntity()
         CurrentPlatesData = net.ReadTable()
+        local preferredId = net.ReadString()
 
         SelectedPlateID = nil
         if IsValid(CurrentSelection) and next(CurrentPlatesData) then
-            -- Default to the first found ID
-            for id, _ in pairs(CurrentPlatesData) do
-                SelectedPlateID = id
-                break
+            -- The plate closest to the clicked point, or the first ID alphabetically
+            if CurrentPlatesData[preferredId] then
+                SelectedPlateID = preferredId
+            else
+                SelectedPlateID = GetSortedPlateIds()[1]
             end
 
             -- Sync ConVars to match the selected vehicle initially
@@ -465,7 +777,7 @@ if CLIENT then
         -- Use localization key for label
         local idCombo, idLabel = panel:ComboBox(language.GetPhrase("glide_pe_plate_id"))
         idCombo:SetSortItems(false)
-        for id, _ in pairs(CurrentPlatesData) do
+        for _, id in ipairs(GetSortedPlateIds()) do
             idCombo:AddChoice(id, id, id == SelectedPlateID)
         end
 
@@ -490,6 +802,9 @@ if CLIENT then
         -- 3. Visibility Toggle (Bound to ConVar)
         -- Use localization key for label
         panel:CheckBox(language.GetPhrase("glide_pe_hidden"), "glide_plate_editor_hidden")
+
+        -- Advanced configuration (bodygroup rules / bone), also for hidden plates
+        BuildAdvancedSection(panel, data)
 
         if data.hidden then return end
 
@@ -627,13 +942,30 @@ if SERVER then
         return bucket.count > MAX_UPDATES_PER_SECOND
     end
 
-    net.Receive("GlidePlateEditor_Update", function(len, ply)
-        local vehicle = net.ReadEntity()
-        local plateId = net.ReadString()
-        local key = net.ReadString()
-        local value = net.ReadType()
+    -- Manual hide from the tool (also used when copying a setup)
+    local function ApplyManualHide(plateEntity, bHidden)
+        -- Set manual hide flag to prevent other scripts from overriding
+        plateEntity.ManualHide = bHidden
 
-        -- Validation
+        plateEntity:SetNoDraw(bHidden)
+
+        -- Hide model and text completely if hidden
+        if bHidden then
+            plateEntity:SetTextAlpha(0)
+            plateEntity:SetNotSolid(true)
+            -- Force render mode to ensure it stays invisible
+            plateEntity:SetRenderMode(RENDERMODE_NONE)
+        else
+            -- Restore alpha and collision if shown
+            plateEntity:SetTextAlpha(plateEntity.GlideSavedAlpha or 255)
+            plateEntity:SetNotSolid(false)
+            plateEntity:SetRenderMode(RENDERMODE_NORMAL)
+            plateEntity.ManualHide = nil -- Clear flag
+        end
+    end
+
+    -- Checks shared by every edit message. Returns the plate entity, or nil.
+    local function GetEditablePlate(ply, vehicle, plateId)
         if not IsValid(ply) then return end
         if not IsValid(vehicle) or not vehicle.IsGlideVehicle then return end
         if not GlideLicensePlates or not GlideLicensePlates.Config then return end
@@ -650,13 +982,19 @@ if SERVER then
             return
         end
 
-        local plateEntity = nil
         -- Check if the plate entity exists under the selected ID
-        if vehicle.LicensePlateEntities then
-            plateEntity = vehicle.LicensePlateEntities[plateId]
-        end
+        local plateEntity = vehicle.LicensePlateEntities and vehicle.LicensePlateEntities[plateId]
+        if IsValid(plateEntity) then return plateEntity end
+    end
 
-        if not IsValid(plateEntity) then return end
+    net.Receive("GlidePlateEditor_Update", function(len, ply)
+        local vehicle = net.ReadEntity()
+        local plateId = net.ReadString()
+        local key = net.ReadString()
+        local value = net.ReadType()
+
+        local plateEntity = GetEditablePlate(ply, vehicle, plateId)
+        if not plateEntity then return end
 
         -- Apply Changes based on Key
         if key == "text" then
@@ -677,24 +1015,11 @@ if SERVER then
 
         elseif key == "hidden" then
              local bHidden = tobool(value)
+             ApplyManualHide(plateEntity, bHidden)
 
-             -- Set manual hide flag to prevent other scripts from overriding
-             plateEntity.ManualHide = bHidden
-
-             plateEntity:SetNoDraw(bHidden)
-
-             -- Hide model and text completely if hidden
-             if bHidden then
-                plateEntity:SetTextAlpha(0)
-                plateEntity:SetNotSolid(true)
-                -- Force render mode to ensure it stays invisible
-                plateEntity:SetRenderMode(RENDERMODE_NONE)
-             else
-                -- Restore alpha and collision if shown
-                plateEntity:SetTextAlpha(plateEntity.GlideSavedAlpha or 255)
-                plateEntity:SetNotSolid(false)
-                plateEntity:SetRenderMode(RENDERMODE_NORMAL)
-                plateEntity.ManualHide = nil -- Clear flag
+             -- Shown again: an active bodygroup rule may still hide it
+             if not bHidden and GlideLicensePlates.RefreshAdvancedState then
+                 GlideLicensePlates.RefreshAdvancedState(vehicle)
              end
 
         elseif key == "type" then
@@ -819,6 +1144,207 @@ if SERVER then
         -- Persist the new state so duplicator/save data stays up to date
         if GlideLicensePlates.SavePlateData then
             GlideLicensePlates.SavePlateData(vehicle)
+        end
+    end)
+
+    -- Advanced configuration of one plate: replaces all its entries in
+    -- LicensePlateAdvancedConfigs (bone + bodygroup rules)
+    net.Receive("GlidePlateEditor_Advanced", function(len, ply)
+        local vehicle = net.ReadEntity()
+        local plateId = net.ReadString()
+        local bone = net.ReadString()
+        local count = net.ReadUInt(5)
+
+        local entries = {}
+        if bone ~= "" then
+            entries[1] = { id = plateId, bone = bone }
+        end
+
+        for _ = 1, count do
+            local entry = { id = plateId, bodygroup = { net.ReadUInt(8), net.ReadUInt(8) } }
+
+            if net.ReadBool() then
+                entry.platetoggle = true
+            else
+                entry.newplateposition = net.ReadVector()
+                entry.newplateangles = net.ReadAngle()
+                entry.newplatemodelRotation = net.ReadAngle()
+            end
+
+            entries[#entries + 1] = entry
+        end
+
+        local plateEntity = GetEditablePlate(ply, vehicle, plateId)
+        if not plateEntity then return end
+        if not GlideLicensePlates.SanitizeAdvancedConfigs then return end
+
+        -- Work on a per-vehicle copy: the configs may still be the class table
+        -- shared by every vehicle of this class
+        if not vehicle.PlateAdvancedEdited then
+            local current = vehicle.LicensePlateAdvancedConfigs or vehicle.LicensePlateBodygroupConfigs
+            vehicle.LicensePlateAdvancedConfigs = istable(current) and table.Copy(current) or {}
+            vehicle.PlateAdvancedEdited = true
+        end
+
+        local list = {}
+        for _, config in ipairs(vehicle.LicensePlateAdvancedConfigs) do
+            if config.id ~= plateId then
+                list[#list + 1] = config
+            end
+        end
+
+        for _, entry in ipairs(entries) do
+            list[#list + 1] = entry
+        end
+
+        vehicle.LicensePlateAdvancedConfigs = GlideLicensePlates.SanitizeAdvancedConfigs(vehicle, list)
+
+        -- Apply now: bone attach/detach, then bodygroup rules
+        plateEntity.BoneWarned = nil
+        plateEntity:UpdatePosition()
+
+        if GlideLicensePlates.RefreshAdvancedState then
+            GlideLicensePlates.RefreshAdvancedState(vehicle)
+        end
+
+        if GlideLicensePlates.SavePlateData then
+            GlideLicensePlates.SavePlateData(vehicle)
+        end
+    end)
+
+    -- Copies the plate setup of `source` to `target` (same model), plate by
+    -- plate (matching ids): type, look, text offset, manual hide and the whole
+    -- advanced configuration. Texts are kept; auto (random) texts are only
+    -- regenerated when the type changes, shared between plates of one type.
+    local function CopyPlateSetup(source, target)
+        local sourcePlates = source.LicensePlateEntities or {}
+        local customFlags = target.PlateHasCustomText or {}
+
+        -- Auto texts of target plates that keep their type, by type
+        local autoTexts = {}
+        for id, dst in pairs(target.LicensePlateEntities) do
+            local src = sourcePlates[id]
+            if IsValid(dst) and dst.PlateType and not customFlags[id]
+               and (not IsValid(src) or src.PlateType == dst.PlateType) then
+                autoTexts[dst.PlateType] = autoTexts[dst.PlateType] or dst:GetPlateText()
+            end
+        end
+
+        for id, dst in pairs(target.LicensePlateEntities) do
+            local src = sourcePlates[id]
+            if not IsValid(dst) or not IsValid(src) then continue end
+
+            -- Type and model
+            if src.PlateType and src.PlateType ~= dst.PlateType then
+                dst.PlateType = src.PlateType
+                if target.SelectedPlateTypes then target.SelectedPlateTypes[id] = src.PlateType end
+
+                if not customFlags[id] then
+                    local text = autoTexts[src.PlateType] or GlideLicensePlates.GeneratePlate(src.PlateType)
+                    autoTexts[src.PlateType] = text
+                    dst:UpdatePlateText(text)
+                    if target.LicensePlateTexts then target.LicensePlateTexts[id] = text end
+                end
+            end
+
+            if src:GetModel() ~= dst:GetModel() then
+                dst:UpdatePlateModel(src:GetModel())
+            end
+
+            -- Look
+            local font = src:GetPlateFont()
+            dst:SetPlateFont(font)
+            if target.SelectedPlateFonts then target.SelectedPlateFonts[id] = font end
+
+            local scale = src:GetPlateScale()
+            dst:SetPlateScale(scale)
+            if target.SelectedPlateScales then target.SelectedPlateScales[id] = scale end
+
+            local skin = src:GetPlateSkin()
+            dst:UpdatePlateSkin(skin)
+            if target.SelectedPlateSkins then target.SelectedPlateSkins[id] = skin end
+
+            dst:SetTextColor(src:GetTextColor())
+            dst:SetTextOffset(src:GetTextOffset())
+
+            -- Alpha the text has when shown (hidden plates have alpha 0)
+            local alpha = src:GetNoDraw() and (src.GlideSavedAlpha or 255) or src:GetTextAlpha()
+            dst.GlideSavedAlpha = alpha
+            if not dst:GetNoDraw() then dst:SetTextAlpha(alpha) end
+
+            if (src.ManualHide == true) ~= (dst.ManualHide == true) then
+                ApplyManualHide(dst, src.ManualHide == true)
+            end
+        end
+
+        -- Advanced configuration (bone + bodygroup rules); the sanitizer
+        -- returns new tables, nothing is shared with the source
+        local configs = source.LicensePlateAdvancedConfigs or source.LicensePlateBodygroupConfigs
+        target.LicensePlateAdvancedConfigs = GlideLicensePlates.SanitizeAdvancedConfigs(target, configs or {})
+        target.PlateAdvancedEdited = true
+
+        for _, dst in pairs(target.LicensePlateEntities) do
+            if IsValid(dst) then
+                dst.BoneWarned = nil
+                dst:UpdatePosition()
+            end
+        end
+
+        if GlideLicensePlates.RefreshAdvancedState then
+            GlideLicensePlates.RefreshAdvancedState(target)
+        end
+
+        if GlideLicensePlates.SavePlateData then
+            GlideLicensePlates.SavePlateData(target)
+        end
+    end
+
+    -- Reload: copy the plate setup of the selected vehicle to the aimed one
+    function TOOL:Reload(trace)
+        local ply = self:GetOwner()
+        local source = self:GetWeapon():GetNWEntity(SELECTED_VEHICLE_NW)
+        local target = trace.Entity
+
+        if not IsValid(source) or not IsValid(target) or target == source then return false end
+        if not target.IsGlideVehicle or not target.LicensePlateEntities or not next(target.LicensePlateEntities) then return false end
+        if not GlideLicensePlates or not GlideLicensePlates.SanitizeAdvancedConfigs then return false end
+        if IsRateLimited(ply) then return false end
+
+        if target:GetModel() ~= source:GetModel() then
+            ply:ChatPrint("#glide_pe_copy_mismatch")
+            return false
+        end
+
+        if not CanEditVehiclePlates(ply, target) then
+            ply:ChatPrint("[GLIDE License Plates] Only the vehicle owner or an admin can edit these plates.")
+            return false
+        end
+
+        CopyPlateSetup(source, target)
+        ply:ChatPrint("#glide_pe_copy_done")
+
+        return true
+    end
+
+    -- Preview a bodygroup rule: toggles the vehicle bodygroup between the
+    -- rule's submodel and 0
+    net.Receive("GlidePlateEditor_Preview", function(len, ply)
+        local vehicle = net.ReadEntity()
+        local plateId = net.ReadString()
+        local index = net.ReadUInt(8)
+        local sub = net.ReadUInt(8)
+
+        if not GetEditablePlate(ply, vehicle, plateId) then return end
+        if index >= vehicle:GetNumBodyGroups() or sub >= vehicle:GetBodygroupCount(index) then return end
+
+        if vehicle:GetBodygroup(index) == sub then
+            sub = 0
+        end
+
+        vehicle:SetBodygroup(index, sub)
+
+        if GlideLicensePlates.RefreshAdvancedState then
+            GlideLicensePlates.RefreshAdvancedState(vehicle)
         end
     end)
 end
