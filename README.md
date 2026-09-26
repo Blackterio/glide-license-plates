@@ -1,72 +1,135 @@
-# License plate system for Glide vehicles
+# Blackterio's Glide License Plates
 
-## How to add support for license plates to your vehicle
+License plate system for [Glide](https://github.com/StyledStrike/gmod-glide) vehicles.
 
-### Heres what you can put at the beggining of your vehicle's LUA file (before CLIENT and SERVER) to make it compatible with this system
+## Adding plates to your Glide vehicle
 
-```
-local plateCustomText = "" -- Custom text for the license plate, leave blank if you want random text based on the plate's type. IT MUST BE THE SAME FOR ALL PLATES
-local plateType = {"argold", "argvintage"} -- Plate type(s). See the "Every plate type available.md" file in Github for more types. "anytype" (without the {}) for ALL types available. Empty or wrong type will fallback to "argmercosur" 
+Define `ENT.LicensePlateConfigs` in your vehicle's `shared.lua` (or inject it
+server-side, see `lua/autorun/server/sv_glide_base_vehicles_plates.lua`):
 
+```lua
 ENT.LicensePlateConfigs = {
-    
-    { 
-  		id = "rear_main", -- ID for this plate, mainly used on the tool to see which one you're editing, can be anything you like
-  		position = Vector(-104.2, 0, 22), -- Plate position in the vehicle
-  		angles = Angle(10, 180, 0), -- Text and base model angles
-  		modelRotation = Angle(0, 0, 0), -- Base model rotation, adds to the angles of the previous text angle parameter. Rarely needed, mainly used for super specific tweaking.
-  		plateType = plateType, 
-        customText = plateCustomText, 
-        customFont = "" -- Optional license plate font override 
-        customSkin = 0, -- Optional custom skin override
-        customModel = "path/to/your_model.mdl", -- Optional custom model override for this plate
-        textColor = { r = 255, g = 255, b = 255, a = 255 }, -- Optional custom text color	 
-        scale = 0.5, -- Optional text scale override, relative to the base model.
-        textOffset = Vector(0, 0, 0) -- Optional text offset override, relative to the base model.
-    },   
     {
-		id = "front_main",
-		position = Vector(109.8, 0, 12), 
-		angles = Angle(0, 0, 0), 
-		modelRotation = Angle(0, 0, 0), 
-		plateType = plateType,
-		customText = plateCustomText,
-	 -- customFont = "" 
-	 -- customSkin = 0,		
-	 -- customModel = "path/to/your_model.mdl",
-	 -- textColor = { r = 255, g = 255, b = 255, a = 255 }, 		
-	 -- scale = 0.5, 
-	 -- textOffset = Vector(0, 0, 0) 	
-    }, -- you can put as many plates as you want, just make sure to use different IDs
-  }
-```
-
-#### You can also specify what you want to do with a plate when a bodygroup of your chosing is toggled or changed to another submodel
-
-```
-  ENT.LicensePlateAdvancedConfigs = {
- 
-    { 
-		id = "front_main", -- Plate ID, it must exist on the vehicle
-        bodygroup = {21,1},  -- {Bodygroup,SubmodelID}
-		platetoggle = true, -- if true, when bodygroup state is toggled to the value specified above, plate will be hidden
-	 -- newplateposition = Vector(0, 0, 0), --  if the bodygroup is toggled to the new state, plate will be moved to this position (relative to vehicle). If plate is hidden this is not needed
-     -- newplateangles = Angle(0, 0, 0), --  if the bodygroup is toggled to the new state, plate angle will be modified to this position. If plate is hidden this is not needed
-     -- newplatemodelRotation = Angle(0, 0, 0), --  if the bodygroup is toggled to the new state, plate model angle will be modified to this position. If plate is hidden this is not needed 			
-
-    }, -- you can put as many as you want
+        id = "front_main",              -- unique id per plate (optional, auto "plate_N")
+        position = Vector(111.5, 0, -13), -- local to the vehicle
+        angles = Angle(0, 0, 0),          -- local to the vehicle
+        plateType = "argmercosur",        -- type id, group name, list of either, or "anytype"
+        -- Optional overrides:
+        -- customText = "MY PLATE",       -- fixed text instead of a random one
+        -- customModel = "models/...",    -- custom plate model
+        -- customSkin = 2,                -- skin override
+        -- font = "Arial",                -- font override
+        -- scale = 0.4,                   -- text scale override
+        -- textColor = { r=0, g=0, b=0, a=255 },
+        -- textOffset = Vector(0, 0, 0),  -- X=forward, Y=right(inverted), Z=up
+        -- modelRotation = Angle(0, 0, 0),
+    },
 }
 ```
 
-##### Console commands, mainly for debug purposes:
+`plateType` accepts:
+- A type id (e.g. `"argmercosur"`, `"usacalifornia"`, `"europegermany"`...)
+- A group name (`"usaplates"`, `"europeplates"`, `"mercosurplates"`, `"argentinaplates"`,
+  `"gtavplates"`, `"gtasaplates"`, `"gtaivplates"`, `"gtavandreasplates"`)
+- A table mixing both: `{ "gtavplates", "usacalifornia" }` (one is picked at random)
+- `"anytype"` for any registered type
 
-```
-glide_change_plate <text> - Change plate text (only admin)
-glide_license_plates_enabled 0/1 - Enable/disable license plates
-glide_license_plates_distance <num> - Change render distance
-glide_change_text_color <r> <g> <b> [a] - Change text's color (only admin)
-glide_remove_plate <plate_id> - Remove plate (only admin)
-glide_recreate_plates - Recreate all license plates (only admin)
+## Hiding/moving plates with bodygroups
+
+Define `ENT.LicensePlateAdvancedConfigs` to react to vehicle bodygroups
+(e.g. a bumper that covers the plate):
+
+```lua
+ENT.LicensePlateAdvancedConfigs = {
+    {
+        id = "front_main",
+        bodygroup = {3, 1},   -- { bodygroup index, submodel value }
+        platetoggle = true,   -- hide the plate while active
+        -- Or move it instead of hiding:
+        -- newplateposition = Vector(...),
+        -- newplateangles = Angle(...),
+        -- newplatemodelRotation = Angle(...),
+    },
+}
 ```
 
-This thing is extremely slop coded (AI), feel free to improve it with your REAL talent as you wish. Proper credits will be given for every improvement.
+Note: GMod/Glide provide no bodygroup-change hook, so changes are detected by
+polling every 0.5 seconds. (`LicensePlateBodygroupConfigs`, the legacy key, is still
+supported.)
+
+## Attaching a plate to a bone
+
+For plates on moving parts (a trunk lid, a tailgate...), add an entry with
+`bone` to `ENT.LicensePlateAdvancedConfigs`. The plate follows that bone:
+
+```lua
+ENT.LicensePlateAdvancedConfigs = {
+    { id = "rear_main", bone = "trunk" },  -- always active, no bodygroup needed
+}
+```
+
+- `position`/`angles` stay in vehicle space, measured with the part closed.
+- The bone must exist in the model with that exact name, or the plate stays
+  on the vehicle (a warning is printed in the server console).
+- The rest pose is read on the server, so the part must be animated
+  client-side (pose parameters or bone manipulation on the client).
+
+## Registering custom plate types from another addon
+
+```lua
+hook.Add("GlideLicensePlatesLoaded", "MyAddon.RegisterPlates", function()
+    GlideLicensePlates.PlateTypes["mytype"] = {
+        pattern = "AB 123 CD",  -- A-Z become random letters, 0-9 random digits
+        model = "models/my/plate.mdl",
+        description = "My plate (AB 123 CD)",
+        defaultFont = "Arial",
+        defaultTextColor = { r = 0, g = 0, b = 0, a = 255 },
+        defaultScale = 0.37,
+        defaultTextOffset = Vector(0, 0, 0),
+        defaultSkin = 0,
+    }
+    GlideLicensePlates.PlateGroups["mygroup"] = { "mytype" }
+end)
+```
+
+## Plate editor tool
+
+The "License plate editor" tool (Glide category) edits text, type, color, offset,
+skin and visibility per plate, plus its "Advanced Configuration": the bone it follows
+and its bodygroup rules (hide/move, with a preview button). All tool edits are saved
+with dupes and saves.
+- Left click selects a vehicle; the plate closest to where you clicked is preselected.
+- Reload (R) copies the selected vehicle's plate setup to the aimed vehicle (same model
+  only). Plate texts are not copied.
+
+Text behavior when changing the plate type:
+- Manually-set text (typed in the tool or via `glide_change_plate`) is always preserved.
+- Random (auto) text: if another auto plate of the vehicle already uses the new type,
+  its text is reused (front/rear plates share one text); otherwise a new random text
+  matching the new type's pattern is generated. `glide_random_plate` makes a plate
+  "auto" again.
+
+## ConVars
+
+| ConVar | Realm | Default | Description |
+|--------|-------|---------|-------------|
+| `glide_license_plates_enabled` | client | 1 | Render license plates |
+| `glide_license_plates_distance` | client | 500 | Plate render distance |
+| `glide_plates_edit_mode` | server | 0 | Tool permissions: 0 = owner/admin, 1 = admins only, 2 = everyone |
+
+## Console commands
+
+- `glide_random_plate [plate_id]` — new random plate (vehicle owner/admin)
+- `glide_change_plate <text> [plate_id]` — set plate text (admin)
+- `glide_change_text_color <r> <g> <b> [a] [plate_id]` — set text color (admin)
+- `glide_change_plate_skin <skin> [plate_id]` — set plate skin (admin)
+- `glide_list_plates`, `glide_remove_plate <plate_id>`, `glide_recreate_plates`,
+  `glide_debug_plate [plate_id]` — admin utilities
+
+## Fonts
+
+The addon ships `GL-Nummernschild-Mtl` (EU-style plates). The USA types default
+to `Dealerplate California` and the old Argentina type to `coolvetica`: those
+fonts are NOT bundled — if the client doesn't have them installed (or provided
+by another addon), the text silently falls back to Arial. Bundle the TTFs in
+`resource/fonts/` if their licenses allow it.
