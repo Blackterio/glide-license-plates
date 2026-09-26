@@ -444,7 +444,7 @@ if CLIENT then
     -- load) sends ONE message with the final vector, instead of three messages
     -- with partially-updated components.
     local function UpdateOffset()
-        if IgnoreConVarChanges then return end
+        if IgnoreConVarChanges or not IsValid(CurrentSelection) or not SelectedPlateID then return end
         QueueUpdate("offset", Vector(
             GetConVar("glide_plate_editor_offset_x"):GetFloat(),
             GetConVar("glide_plate_editor_offset_y"):GetFloat(),
@@ -457,7 +457,7 @@ if CLIENT then
 
     -- Special handling for Color (throttled like the offset)
     local function UpdateColor()
-        if IgnoreConVarChanges then return end
+        if IgnoreConVarChanges or not IsValid(CurrentSelection) or not SelectedPlateID then return end
         QueueUpdate("color_alpha", {
             r = GetConVar("glide_plate_editor_color_r"):GetInt(),
             g = GetConVar("glide_plate_editor_color_g"):GetInt(),
